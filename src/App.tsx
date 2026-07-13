@@ -25,25 +25,53 @@ const MIN_FONT_SIZE = 48;
 const MAX_FONT_SIZE = 112;
 const FONT_SIZE_STEP = 8;
 
-function getFocusLetterIndex(word: string): number {
-  const match = word.match(/[\p{L}\p{N}]+/u);
+type Screen = "home" | "reader";
 
-  if (!match || match.index === undefined) {
+function tokenizeText(text: string): string[] {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function getFocusLetterIndex(word: string): number {
+  const cleanWord = word.replace(
+    /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,
+    "",
+  );
+
+  if (!cleanWord) {
     return Math.max(0, Math.floor((word.length - 1) / 2));
   }
 
-  const coreWord = match[0];
-  const coreStart = match.index;
-  const middleOfCore = Math.floor((coreWord.length - 1) / 2);
+  const cleanWordStart = word.indexOf(cleanWord);
 
-  return coreStart + middleOfCore;
+  let focusPosition: number;
+
+  if (cleanWord.length <= 1) {
+    focusPosition = 0;
+  } else if (cleanWord.length <= 5) {
+    focusPosition = 1;
+  } else if (cleanWord.length <= 9) {
+    focusPosition = 2;
+  } else if (cleanWord.length <= 13) {
+    focusPosition = 3;
+  } else {
+    focusPosition = 4;
+  }
+
+  return cleanWordStart + Math.min(focusPosition, cleanWord.length - 1);
 }
 
 function App() {
-  const words = useMemo(
-    () => DEMO_TEXT.trim().split(/\s+/).filter(Boolean),
-    [],
-  );
+  const [screen, setScreen] = useState<Screen>("home");
+
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftText, setDraftText] = useState("");
+  const [formError, setFormError] = useState("");
+
+  const [documentTitle, setDocumentTitle] = useState("");
+  const [words, setWords] = useState<string[]>([]);
 
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -51,6 +79,11 @@ function App() {
   const [fontSize, setFontSize] = useState(72);
 
   const activeBackgroundWordRef = useRef<HTMLSpanElement | null>(null);
+
+  const pastedWordCount = useMemo(
+    () => tokenizeText(draftText).length,
+    [draftText],
+  );
 
   const currentWord = words[currentWordIndex] ?? "";
   const focusLetterIndex = getFocusLetterIndex(currentWord);
@@ -60,9 +93,45 @@ function App() {
   const wordAfterFocus = currentWord.slice(focusLetterIndex + 1);
 
   const progress =
-    words.length > 1
-      ? (currentWordIndex / (words.length - 1)) * 100
-      : 100;
+    words.length <= 1
+      ? words.length === 1
+        ? 100
+        : 0
+      : (currentWordIndex / (words.length - 1)) * 100;
+
+  const estimatedMinutes =
+    words.length > 0
+      ? Math.max(1, Math.ceil(words.length / wordsPerMinute))
+      : 0;
+
+  const openReader = useCallback((title: string, text: string) => {
+    const parsedWords = tokenizeText(text);
+
+    if (parsedWords.length === 0) {
+      setFormError("Paste some text before starting.");
+      return;
+    }
+
+    setWords(parsedWords);
+    setDocumentTitle(title.trim() || "Untitled text");
+    setCurrentWordIndex(0);
+    setIsPlaying(false);
+    setFormError("");
+    setScreen("reader");
+  }, []);
+
+  const startPastedText = () => {
+    openReader(draftTitle, draftText);
+  };
+
+  const startDemo = () => {
+    openReader("RSVP demonstration", DEMO_TEXT);
+  };
+
+  const returnHome = useCallback(() => {
+    setIsPlaying(false);
+    setScreen("home");
+  }, []);
 
   const togglePlayback = useCallback(() => {
     if (words.length === 0) {
@@ -119,7 +188,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!isPlaying) {
+    if (
+      screen !== "reader" ||
+      !isPlaying ||
+      words.length === 0
+    ) {
       return;
     }
 
@@ -142,20 +215,29 @@ function App() {
   }, [
     currentWordIndex,
     isPlaying,
+    screen,
     words.length,
     wordsPerMinute,
   ]);
 
   useEffect(() => {
+    if (screen !== "reader") {
+      return;
+    }
+
     activeBackgroundWordRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "center",
       inline: "center",
     });
-  }, [currentWordIndex]);
+  }, [currentWordIndex, screen]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (screen !== "reader") {
+        return;
+      }
+
       const target = event.target as HTMLElement;
 
       const userIsTyping =
@@ -178,6 +260,7 @@ function App() {
         "KeyD",
         "KeyW",
         "KeyS",
+        "Escape",
       ];
 
       if (controlledKeys.includes(event.code)) {
@@ -210,6 +293,10 @@ function App() {
         case "KeyS":
           decreaseSpeed();
           break;
+
+        case "Escape":
+          returnHome();
+          break;
       }
     }
 
@@ -223,19 +310,166 @@ function App() {
     increaseSpeed,
     nextWord,
     previousWord,
+    returnHome,
+    screen,
     togglePlayback,
   ]);
+
+  if (screen === "home") {
+    return (
+      <div className="landing-shell">
+        <header className="site-header">
+          <button
+            className="brand brand-button"
+            type="button"
+            aria-label="RSVP Reader home"
+          >
+            <span className="brand-mark" />
+            RSVP Reader
+          </button>
+
+          <button
+            className="sign-in-button"
+            type="button"
+            title="Account support will be added later"
+          >
+            Sign in
+          </button>
+        </header>
+
+        <main className="landing-main">
+          <section className="hero-section">
+            <div className="hero-copy">
+              <span className="eyebrow">
+                Read without losing focus
+              </span>
+
+              <h1>
+                Your text.
+                <br />
+                One word at a time.
+              </h1>
+
+              <p className="hero-description">
+                Transform books, articles and documents into a focused
+                speed-reading experience using Rapid Serial Visual
+                Presentation.
+              </p>
+
+              <div className="hero-features">
+                <span>300–600 WPM</span>
+                <span>Keyboard controls</span>
+                <span>Distraction-free</span>
+              </div>
+
+              <button
+                className="demo-button"
+                type="button"
+                onClick={startDemo}
+              >
+                Try the demonstration
+                <span aria-hidden="true">→</span>
+              </button>
+            </div>
+
+            <section className="text-entry-card">
+              <div className="entry-card-header">
+                <div>
+                  <span className="entry-step">New reading</span>
+                  <h2>Paste your text</h2>
+                </div>
+
+                <span className="word-count">
+                  {pastedWordCount.toLocaleString("en-US")} words
+                </span>
+              </div>
+
+              <label className="field-label" htmlFor="document-title">
+                Title
+              </label>
+
+              <input
+                id="document-title"
+                className="title-input"
+                type="text"
+                value={draftTitle}
+                onChange={(event) => {
+                  setDraftTitle(event.target.value);
+                  setFormError("");
+                }}
+                placeholder="Optional document title"
+                maxLength={120}
+              />
+
+              <label className="field-label" htmlFor="document-text">
+                Text
+              </label>
+
+              <textarea
+                id="document-text"
+                className="text-input"
+                value={draftText}
+                onChange={(event) => {
+                  setDraftText(event.target.value);
+                  setFormError("");
+                }}
+                placeholder="Paste a chapter, article or any other text here..."
+                spellCheck
+              />
+
+              {formError && (
+                <p className="form-error" role="alert">
+                  {formError}
+                </p>
+              )}
+
+              <button
+                className="start-reading-button"
+                type="button"
+                onClick={startPastedText}
+                disabled={pastedWordCount === 0}
+              >
+                Start reading
+                <span aria-hidden="true">→</span>
+              </button>
+
+              <div className="upload-preview">
+                <div className="upload-preview-icon">PDF</div>
+
+                <div>
+                  <strong>Upload a PDF</strong>
+                  <span>Document upload will be added next.</span>
+                </div>
+
+                <span className="coming-soon">Coming soon</span>
+              </div>
+            </section>
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="reader-shell">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="RSVP Reader home">
+        <button
+          className="brand brand-button"
+          type="button"
+          onClick={returnHome}
+          aria-label="Return to home"
+        >
           <span className="brand-mark" />
           RSVP Reader
-        </a>
+        </button>
 
-        <button className="sign-in-button" type="button">
-          Sign in
+        <button
+          className="reader-exit-button"
+          type="button"
+          onClick={returnHome}
+        >
+          Exit reader
+          <kbd>Esc</kbd>
         </button>
       </header>
 
@@ -268,7 +502,8 @@ function App() {
       <main className="reader-content">
         <section className="reader-panel">
           <div className="reader-status">
-            <span>Demo text</span>
+            <span>{documentTitle}</span>
+
             <span>
               {currentWordIndex + 1} / {words.length}
             </span>
@@ -376,7 +611,11 @@ function App() {
 
           <div className="progress-section">
             <div className="progress-information">
-              <span>Reading progress</span>
+              <span>
+                Approximately {estimatedMinutes} min at{" "}
+                {wordsPerMinute} WPM
+              </span>
+
               <span>{Math.round(progress)}%</span>
             </div>
 

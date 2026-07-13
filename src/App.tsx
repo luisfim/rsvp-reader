@@ -1,10 +1,12 @@
 import {
+  type ChangeEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { extractTextFromPdf } from "./lib/pdf";
 import "./App.css";
 
 const DEMO_TEXT = `
@@ -24,6 +26,7 @@ const WPM_STEP = 25;
 const MIN_FONT_SIZE = 48;
 const MAX_FONT_SIZE = 112;
 const FONT_SIZE_STEP = 8;
+const MAX_PDF_FILE_SIZE = 20 * 1024 * 1024;
 
 type Screen = "home" | "reader";
 
@@ -69,6 +72,9 @@ function App() {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftText, setDraftText] = useState("");
   const [formError, setFormError] = useState("");
+  const [pdfFileName, setPdfFileName] = useState("");
+  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
 
   const [documentTitle, setDocumentTitle] = useState("");
   const [words, setWords] = useState<string[]>([]);
@@ -79,6 +85,7 @@ function App() {
   const [fontSize, setFontSize] = useState(72);
 
   const activeBackgroundWordRef = useRef<HTMLSpanElement | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   const pastedWordCount = useMemo(
     () => tokenizeText(draftText).length,
@@ -126,6 +133,83 @@ function App() {
 
   const startDemo = () => {
     openReader("RSVP demonstration", DEMO_TEXT);
+  };
+  const handlePdfUpload = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    const isPdf =
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf");
+
+    if (!isPdf) {
+      setFormError("Choose a valid PDF file.");
+      setPdfFileName("");
+      return;
+    }
+
+    if (file.size > MAX_PDF_FILE_SIZE) {
+      setFormError("Choose a PDF smaller than 20 MB.");
+      setPdfFileName("");
+      return;
+    }
+
+    setIsExtractingPdf(true);
+    setPdfProgress(0);
+    setPdfFileName(file.name);
+    setFormError("");
+
+    try {
+      const extractedText = await extractTextFromPdf(
+        file,
+        (currentPage, totalPages) => {
+          const progress = Math.round(
+            (currentPage / totalPages) * 100,
+          );
+
+          setPdfProgress(progress);
+        },
+      );
+
+      const extractedWords = tokenizeText(extractedText);
+
+      if (extractedWords.length === 0) {
+        throw new Error(
+          "No selectable text was found. This may be a scanned PDF.",
+        );
+      }
+
+      setDraftText(extractedText);
+
+      setDraftTitle((currentTitle) => {
+        if (currentTitle.trim()) {
+          return currentTitle;
+        }
+
+        return file.name.replace(/\.pdf$/i, "");
+      });
+
+      setPdfProgress(100);
+      setFormError("");
+    } catch (error) {
+      setPdfFileName("");
+      setPdfProgress(0);
+
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : "The PDF could not be processed.",
+      );
+    } finally {
+      setIsExtractingPdf(false);
+    }
   };
 
   const returnHome = useCallback(() => {
@@ -433,16 +517,54 @@ function App() {
                 <span aria-hidden="true">→</span>
               </button>
 
-              <div className="upload-preview">
-                <div className="upload-preview-icon">PDF</div>
+                <input
+                  ref={pdfInputRef}
+                  className="visually-hidden"
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handlePdfUpload}
+                  disabled={isExtractingPdf}
+                  aria-label="Upload a PDF document"
+                />
 
-                <div>
-                  <strong>Upload a PDF</strong>
-                  <span>Document upload will be added next.</span>
-                </div>
+                <button
+                  className="pdf-upload-button"
+                  type="button"
+                  onClick={() => pdfInputRef.current?.click()}
+                  disabled={isExtractingPdf}
+                >
+                  <div className="pdf-upload-icon">PDF</div>
 
-                <span className="coming-soon">Coming soon</span>
-              </div>
+                  <div className="pdf-upload-copy">
+                    <strong>
+                      {isExtractingPdf
+                        ? "Extracting text..."
+                        : pdfFileName || "Upload a PDF"}
+                    </strong>
+
+                    <span>
+                      {isExtractingPdf
+                        ? `Reading document — ${pdfProgress}%`
+                        : pdfFileName
+                          ? `${pastedWordCount.toLocaleString("en-US")} words ready`
+                          : "Choose a text-based PDF up to 20 MB."}
+                    </span>
+
+                    {isExtractingPdf && (
+                      <div className="pdf-mini-progress" aria-hidden="true">
+                        <span style={{ width: `${pdfProgress}%` }} />
+                      </div>
+                    )}
+                  </div>
+
+                  <span className="upload-action">
+                    {isExtractingPdf
+                      ? `${pdfProgress}%`
+                      : pdfFileName
+                        ? "Replace"
+                        : "Choose file"}
+                  </span>
+                </button>
             </section>
           </section>
         </main>

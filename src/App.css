@@ -836,3 +836,109 @@ kbd {
     white-space: nowrap;
   }
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pdf-upload-button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 13px;
+  margin-top: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 13px;
+  padding: 13px;
+  background: rgba(255, 255, 255, 0.015);
+  color: rgba(255, 255, 255, 0.4);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.pdf-upload-button:hover:not(:disabled) {
+  border-color: rgba(255, 74, 74, 0.48);
+  background: rgba(255, 74, 74, 0.045);
+  transform: translateY(-1px);
+}
+
+.pdf-upload-button:disabled {
+  cursor: wait;
+}
+
+.pdf-upload-icon {
+  display: grid;
+  width: 39px;
+  height: 39px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(255, 74, 74, 0.1);
+  color: #ff6464;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.pdf-upload-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pdf-upload-copy strong {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-upload-copy > span {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 10px;
+}
+
+.upload-action {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pdf-mini-progress {
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pdf-mini-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #ff3b3b;
+  transition: width 160ms ease;
+}
+
+@media (max-width: 480px) {
+  .upload-action {
+    display: none;
+  }
+}

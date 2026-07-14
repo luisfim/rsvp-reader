@@ -1,5 +1,4 @@
 import {
-  type ChangeEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -9,18 +8,10 @@ import {
 
 import {
   AUTO_SAVE_INTERVAL_MS,
-  DEFAULT_FONT_SIZE,
-  DEFAULT_WPM,
   DEMO_TEXT,
-  MAX_PDF_FILE_SIZE,
 } from "./config/reader";
 
-import {
-  createSavedDocument,
-  type SavedDocument,
-} from "./lib/library";
-import { extractTextFromPdf } from "./lib/pdf";
-import { tokenizeText } from "./lib/reader";
+import { type SavedDocument } from "./lib/library";
 
 import type { ReaderOptions, Screen } from "./types/reader";
 
@@ -34,6 +25,7 @@ import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { useReaderFocusMode } from "./hooks/useReaderFocusMode";
 import { useReaderKeyboardControls } from "./hooks/useReaderKeyboardControls";
 import { useLibrarySync } from "./hooks/useLibrarySync";
+import { useDocumentImport } from "./hooks/useDocumentImport";
 import { useRsvpPlayer } from "./hooks/useRsvpPlayer";
 import type {
   CloudConnectionStatus,
@@ -51,14 +43,6 @@ function App() {
   const [screen, setScreen] = useState<Screen>(() =>
     location.pathname.startsWith("/reader/") ? "reader" : "home",
   );
-
-  const [draftTitle, setDraftTitle] = useState("");
-  const [draftText, setDraftText] = useState("");
-  const [formError, setFormError] = useState("");
-
-  const [pdfFileName, setPdfFileName] = useState("");
-  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
-  const [pdfProgress, setPdfProgress] = useState(0);
 
   const {
     savedDocuments,
@@ -93,7 +77,6 @@ function App() {
   const documentLayerRef = useRef<HTMLDivElement | null>(null);
   const activeBackgroundWordRef = useRef<HTMLSpanElement | null>(null);
   const lastBackgroundLineTopRef = useRef<number | null>(null);
-  const pdfInputRef = useRef<HTMLInputElement | null>(null);
   const lastAutoSaveAtRef = useRef(0);
 
   const {
@@ -134,11 +117,6 @@ function App() {
     isPlaying,
   });
 
-
-  const pastedWordCount = useMemo(
-    () => tokenizeText(draftText).length,
-    [draftText],
-  );
 
   const latestDocument = useMemo(() => {
     if (savedDocuments.length === 0) {
@@ -257,11 +235,12 @@ function App() {
       const result = loadReaderState(title, text, options);
 
       if (!result.success) {
-        setFormError(result.error ?? "The text could not be opened.");
-        return;
+        return {
+          success: false as const,
+          error: result.error ?? "The text could not be opened.",
+        };
       }
 
-      setFormError("");
       setScreen("reader");
       markReaderOpened(options.documentId);
       lastBackgroundLineTopRef.current = null;
@@ -272,40 +251,55 @@ function App() {
         : "/reader/demo";
 
       navigate(destination);
+
+      return { success: true as const };
     },
     [loadReaderState, markReaderOpened, navigate],
   );
-  const startPastedText = () => {
-    const parsedWords = tokenizeText(draftText);
 
-    if (parsedWords.length === 0) {
-      setFormError("Paste some text before starting.");
+  const {
+    draftTitle,
+    draftText,
+    formError,
+    pdfFileName,
+    isExtractingPdf,
+    pdfProgress,
+    pastedWordCount,
+    pdfInputRef,
+    updateDraftTitle,
+    updateDraftText,
+    setImportError,
+    createDocumentFromDraft,
+    handlePdfUpload,
+  } = useDocumentImport();
+
+  const startPastedText = () => {
+    const newDocument = createDocumentFromDraft();
+
+    if (!newDocument) {
       return;
     }
-
-    const title = draftTitle.trim() || "Untitled text";
-
-    const newDocument = createSavedDocument({
-      title,
-      text: draftText,
-      wordCount: parsedWords.length,
-      wordsPerMinute: DEFAULT_WPM,
-      fontSize: DEFAULT_FONT_SIZE,
-      useNaturalPauses: false,
-    });
 
     setSavedDocuments((currentDocuments) => [
       newDocument,
       ...currentDocuments,
     ]);
 
-    openReader(title, draftText, {
-      documentId: newDocument.id,
-      startIndex: 0,
-      savedWordsPerMinute: newDocument.wordsPerMinute,
-      savedFontSize: newDocument.fontSize,
-      savedNaturalPauses: newDocument.useNaturalPauses,
-    });
+    const result = openReader(
+      newDocument.title,
+      newDocument.text,
+      {
+        documentId: newDocument.id,
+        startIndex: 0,
+        savedWordsPerMinute: newDocument.wordsPerMinute,
+        savedFontSize: newDocument.fontSize,
+        savedNaturalPauses: newDocument.useNaturalPauses,
+      },
+    );
+
+    if (!result.success) {
+      setImportError(result.error);
+    }
   };
 
   const startDemo = () => {
@@ -322,79 +316,6 @@ function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [navigate]);
 
-  const handlePdfUpload = async (
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) {
-      return;
-    }
-
-    const isPdf =
-      file.type === "application/pdf" ||
-      file.name.toLowerCase().endsWith(".pdf");
-
-    if (!isPdf) {
-      setFormError("Choose a valid PDF file.");
-      setPdfFileName("");
-      return;
-    }
-
-    if (file.size > MAX_PDF_FILE_SIZE) {
-      setFormError("Choose a PDF smaller than 20 MB.");
-      setPdfFileName("");
-      return;
-    }
-
-    setIsExtractingPdf(true);
-    setPdfProgress(0);
-    setPdfFileName(file.name);
-    setFormError("");
-
-    try {
-      const extractedText = await extractTextFromPdf(
-        file,
-        (currentPage, totalPages) => {
-          setPdfProgress(
-            Math.round((currentPage / totalPages) * 100),
-          );
-        },
-      );
-
-      const extractedWords = tokenizeText(extractedText);
-
-      if (extractedWords.length === 0) {
-        throw new Error(
-          "No selectable text was found. This may be a scanned PDF.",
-        );
-      }
-
-      setDraftText(extractedText);
-
-      setDraftTitle((currentTitle) => {
-        if (currentTitle.trim()) {
-          return currentTitle;
-        }
-
-        return file.name.replace(/\.pdf$/i, "");
-      });
-
-      setPdfProgress(100);
-      setFormError("");
-    } catch (error) {
-      setPdfFileName("");
-      setPdfProgress(0);
-      setFormError(
-        error instanceof Error
-          ? error.message
-          : "The PDF could not be processed.",
-      );
-    } finally {
-      setIsExtractingPdf(false);
-    }
-  };
 
   const continueSavedDocument = (savedDocument: SavedDocument) => {
     openReader(savedDocument.title, savedDocument.text, {
@@ -820,14 +741,8 @@ function App() {
         onOpenAccount={openAccount}
         onStartDemo={startDemo}
         onContinueDocument={continueSavedDocument}
-        onDraftTitleChange={(value) => {
-          setDraftTitle(value);
-          setFormError("");
-        }}
-        onDraftTextChange={(value) => {
-          setDraftText(value);
-          setFormError("");
-        }}
+        onDraftTitleChange={updateDraftTitle}
+        onDraftTextChange={updateDraftText}
         onStartReading={startPastedText}
         onPdfUpload={handlePdfUpload}
       />

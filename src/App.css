@@ -2557,3 +2557,163 @@ kbd {
     font-size: 10px;
   }
 }
+
+/* Offline-first cloud synchronization */
+.cloud-connection-badge {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(var(--color-accent-rgb), 0.24);
+  border-radius: 999px;
+  padding: 0 11px;
+  background: rgba(var(--color-accent-rgb), 0.08);
+  color: rgba(225, 238, 255, 0.74);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  backdrop-filter: blur(12px);
+}
+
+.cloud-connection-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent-strong);
+  box-shadow: 0 0 12px rgba(var(--color-accent-rgb), 0.55);
+}
+
+.cloud-connection-badge.syncing .cloud-connection-dot {
+  animation: cloud-sync-pulse 900ms ease-in-out infinite alternate;
+}
+
+.cloud-connection-badge.pending {
+  border-color: rgba(var(--color-warning-rgb), 0.3);
+  background: rgba(var(--color-warning-rgb), 0.09);
+  color: rgba(255, 232, 190, 0.76);
+}
+
+.cloud-connection-badge.pending .cloud-connection-dot {
+  background: var(--color-warning);
+  box-shadow: 0 0 12px rgba(var(--color-warning-rgb), 0.48);
+}
+
+.cloud-connection-badge.offline {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.cloud-connection-badge.offline .cloud-connection-dot {
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: none;
+}
+
+.offline-sync-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  margin: -18px 0 24px;
+  border: 1px solid rgba(var(--color-warning-rgb), 0.24);
+  border-radius: 18px;
+  padding: 19px 20px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(var(--color-warning-rgb), 0.095),
+      rgba(var(--color-accent-rgb), 0.07)
+    ),
+    rgba(4, 14, 25, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.offline-sync-banner > div {
+  min-width: 0;
+}
+
+.offline-sync-kicker {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--color-warning);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.offline-sync-banner strong {
+  display: block;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  letter-spacing: -0.018em;
+}
+
+.offline-sync-banner p {
+  max-width: 760px;
+  margin: 7px 0 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.offline-sync-banner > button {
+  min-height: 38px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(var(--color-accent-rgb), 0.38);
+  border-radius: 10px;
+  padding: 0 15px;
+  background: rgba(var(--color-accent-rgb), 0.14);
+  color: var(--color-accent-strong);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.offline-sync-banner > button:hover:not(:disabled) {
+  border-color: rgba(var(--color-accent-rgb), 0.66);
+  background: rgba(var(--color-accent-rgb), 0.21);
+}
+
+.offline-sync-banner > button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+@keyframes cloud-sync-pulse {
+  from {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@media (max-width: 900px) {
+  .cloud-connection-badge {
+    width: 36px;
+    justify-content: center;
+    padding: 0;
+    color: transparent;
+    font-size: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .offline-sync-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: -8px;
+    padding: 17px;
+  }
+
+  .offline-sync-banner > button {
+    width: 100%;
+  }
+}

@@ -1,12 +1,14 @@
 @import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap");
 
 :root {
-  --color-bg: #0b1112;
-  --color-bg-elevated: #0f1718;
-  --color-text: #e7eeec;
-  --color-accent: #78cbbb;
-  --color-accent-strong: #91d8ca;
-  --color-accent-rgb: 120, 203, 187;
+  --color-bg: #061321;
+  --color-bg-elevated: #0a1d31;
+  --color-text: #e8f1fc;
+  --color-accent: #4d8fe8;
+  --color-accent-strong: #78adf5;
+  --color-accent-rgb: 77, 143, 232;
+  --color-focus: #ff4d57;
+  --color-focus-rgb: 255, 77, 87;
   --color-warning: #ddb879;
   --color-warning-rgb: 221, 184, 121;
 
@@ -53,6 +55,6 @@ select:focus-visible {
 }
 
 ::selection {
-  background: rgba(var(--color-accent-rgb), 0.3);
+  background: rgba(var(--color-accent-rgb), 0.34);
   color: #ffffff;
 }

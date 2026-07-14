@@ -41,12 +41,19 @@ import type {
   Screen,
 } from "./types/reader";
 
+import { useLocation, useNavigate } from "react-router";
+
 import "./App.css";
 
 type LibrarySort = "recent" | "title" | "progress";
 
 function App() {
-  const [screen, setScreen] = useState<Screen>("home");
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const [screen, setScreen] = useState<Screen>(() =>
+    location.pathname.startsWith("/reader/") ? "reader" : "home",
+  );
 
   const [draftTitle, setDraftTitle] = useState("");
   const [draftText, setDraftText] = useState("");
@@ -218,7 +225,7 @@ function App() {
     }
   }, [savedDocuments]);
 
-  const openReader = useCallback(
+  const loadReaderState = useCallback(
     (
       title: string,
       text: string,
@@ -257,6 +264,23 @@ function App() {
     [],
   );
 
+
+  const openReader = useCallback(
+    (
+      title: string,
+      text: string,
+      options: ReaderOptions = {},
+    ) => {
+      loadReaderState(title, text, options);
+
+      const destination = options.documentId
+        ? `/reader/${encodeURIComponent(options.documentId)}`
+        : "/reader/demo";
+
+      navigate(destination);
+    },
+    [loadReaderState, navigate],
+  );
   const startPastedText = () => {
     const parsedWords = tokenizeText(draftText);
 
@@ -294,12 +318,10 @@ function App() {
     openReader("RSVP demonstration", DEMO_TEXT);
   };
 
-  const scrollToLibrary = useCallback(() => {
-    librarySectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }, []);
+  const openLibrary = useCallback(() => {
+    navigate("/library");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [navigate]);
 
   const handlePdfUpload = async (
     event: ChangeEvent<HTMLInputElement>,
@@ -531,7 +553,8 @@ function App() {
     setIsPlaying(false);
     setActiveDocumentId(null);
     setScreen("home");
-  }, [persistCurrentSnapshot, saveActiveProgress]);
+    navigate("/");
+  }, [navigate, persistCurrentSnapshot, saveActiveProgress]);
 
   const togglePlayback = useCallback(() => {
     if (words.length === 0) {
@@ -728,6 +751,61 @@ function App() {
   }, [currentWordIndex, isPlaying, screen]);
 
   useEffect(() => {
+    const readerMatch = location.pathname.match(/^\/reader\/([^/]+)$/);
+
+    if (!readerMatch) {
+      if (screen === "reader") {
+        persistCurrentSnapshot();
+        setIsPlaying(false);
+        setActiveDocumentId(null);
+        setScreen("home");
+      }
+
+      return;
+    }
+
+    const routeDocumentId = decodeURIComponent(readerMatch[1]);
+
+    if (routeDocumentId === "demo") {
+      if (screen !== "reader" || activeDocumentId !== null) {
+        loadReaderState("RSVP demonstration", DEMO_TEXT);
+      }
+
+      return;
+    }
+
+    const savedDocument = savedDocuments.find(
+      (document) => document.id === routeDocumentId,
+    );
+
+    if (!savedDocument) {
+      navigate("/library", { replace: true });
+      return;
+    }
+
+    if (
+      screen !== "reader" ||
+      activeDocumentId !== savedDocument.id
+    ) {
+      loadReaderState(savedDocument.title, savedDocument.text, {
+        documentId: savedDocument.id,
+        startIndex: savedDocument.currentWordIndex,
+        savedWordsPerMinute: savedDocument.wordsPerMinute,
+        savedFontSize: savedDocument.fontSize,
+        savedNaturalPauses: savedDocument.useNaturalPauses,
+      });
+    }
+  }, [
+    activeDocumentId,
+    loadReaderState,
+    location.pathname,
+    navigate,
+    persistCurrentSnapshot,
+    savedDocuments,
+    screen,
+  ]);
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (screen !== "reader") {
         return;
@@ -818,13 +896,16 @@ function App() {
     togglePlayback,
   ]);
 
-  if (screen === "home") {
+  const isLibraryPage = location.pathname === "/library";
+
+  if (screen === "home" && isLibraryPage) {
     return (
-      <div className="landing-shell">
+      <div className="landing-shell library-page-shell">
         <header className="site-header">
           <button
             className="brand brand-button"
             type="button"
+            onClick={() => navigate("/")}
             aria-label="RSVP Reader home"
           >
             <span className="brand-mark" />
@@ -833,15 +914,11 @@ function App() {
 
           <div className="header-actions">
             <button
-              className="library-nav-button"
+              className="library-nav-button active"
               type="button"
-              onClick={scrollToLibrary}
-              aria-controls="local-library"
+              onClick={() => navigate("/")}
             >
-              Library
-              <span className="library-nav-count">
-                {savedDocuments.length}
-              </span>
+              Home
             </button>
 
             <button
@@ -854,240 +931,26 @@ function App() {
           </div>
         </header>
 
-        <main className="landing-main">
-          <section className="hero-section">
-            <div className="hero-copy">
-              <span className="eyebrow">
-                Read without losing focus
-              </span>
-
-              <h1>
-                Your text.
-                <br />
-                One word at a time.
-              </h1>
-
-              <p className="hero-description">
-                Transform books, articles and documents into a focused
-                speed-reading experience using Rapid Serial Visual
-                Presentation.
-              </p>
-
-              <div className="hero-features">
-                <span>250–2,000 WPM</span>
-                <span>Keyboard controls</span>
-                <span>Local reading library</span>
-              </div>
-
-              <button
-                className="demo-button"
-                type="button"
-                onClick={startDemo}
-              >
-                Try the demonstration
-                <span aria-hidden="true">→</span>
-              </button>
-
-              {latestDocument && (
-                <section
-                  className="continue-reading-card"
-                  aria-label="Continue your latest reading"
-                >
-                  <div className="continue-reading-heading">
-                    <div>
-                      <span className="continue-reading-label">
-                        Continue reading
-                      </span>
-
-                      <h2>{latestDocument.title}</h2>
-                    </div>
-
-                    <span className="continue-reading-percentage">
-                      {latestDocumentProgressLabel}%
-                    </span>
-                  </div>
-
-                  <p>
-                    Word{" "}
-                    {Math.min(
-                      latestDocument.currentWordIndex + 1,
-                      latestDocument.wordCount,
-                    ).toLocaleString("en-US")}{" "}
-                    of{" "}
-                    {latestDocument.wordCount.toLocaleString(
-                      "en-US",
-                    )}
-                  </p>
-
-                  <div
-                    className="continue-reading-progress"
-                    aria-hidden="true"
-                  >
-                    <span
-                      style={{
-                        width: `${latestDocumentProgress}%`,
-                      }}
-                    />
-                  </div>
-
-                  <div className="continue-reading-actions">
-                    <button
-                      className="continue-latest-button"
-                      type="button"
-                      onClick={() =>
-                        continueSavedDocument(latestDocument)
-                      }
-                    >
-                      Continue
-                      <span aria-hidden="true">→</span>
-                    </button>
-
-                    <button
-                      className="view-library-button"
-                      type="button"
-                      onClick={scrollToLibrary}
-                    >
-                      View all saved texts
-                    </button>
-                  </div>
-                </section>
-              )}
-            </div>
-
-            <section className="text-entry-card">
-              <div className="entry-card-header">
-                <div>
-                  <span className="entry-step">New reading</span>
-                  <h2>Paste your text</h2>
-                </div>
-
-                <span className="word-count">
-                  {pastedWordCount.toLocaleString("en-US")} words
-                </span>
-              </div>
-
-              <label className="field-label" htmlFor="document-title">
-                Title
-              </label>
-
-              <input
-                id="document-title"
-                className="title-input"
-                type="text"
-                value={draftTitle}
-                onChange={(event) => {
-                  setDraftTitle(event.target.value);
-                  setFormError("");
-                }}
-                placeholder="Optional document title"
-                maxLength={120}
-              />
-
-              <label className="field-label" htmlFor="document-text">
-                Text
-              </label>
-
-              <textarea
-                id="document-text"
-                className="text-input"
-                value={draftText}
-                onChange={(event) => {
-                  setDraftText(event.target.value);
-                  setFormError("");
-                }}
-                placeholder="Paste a chapter, article or any other text here..."
-                spellCheck
-              />
-
-              {formError && (
-                <p className="form-error" role="alert">
-                  {formError}
-                </p>
-              )}
-
-              <button
-                className="start-reading-button"
-                type="button"
-                onClick={startPastedText}
-                disabled={pastedWordCount === 0}
-              >
-                Start reading
-                <span aria-hidden="true">→</span>
-              </button>
-
-              <input
-                ref={pdfInputRef}
-                className="visually-hidden"
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={handlePdfUpload}
-                disabled={isExtractingPdf}
-                aria-label="Upload a PDF document"
-              />
-
-              <button
-                className="pdf-upload-button"
-                type="button"
-                onClick={() => pdfInputRef.current?.click()}
-                disabled={isExtractingPdf}
-              >
-                <div className="pdf-upload-icon">PDF</div>
-
-                <div className="pdf-upload-copy">
-                  <strong>
-                    {isExtractingPdf
-                      ? "Extracting text..."
-                      : pdfFileName || "Upload a PDF"}
-                  </strong>
-
-                  <span>
-                    {isExtractingPdf
-                      ? `Reading document — ${pdfProgress}%`
-                      : pdfFileName
-                        ? `${pastedWordCount.toLocaleString(
-                            "en-US",
-                          )} words ready`
-                        : "Choose a text-based PDF up to 20 MB."}
-                  </span>
-
-                  {isExtractingPdf && (
-                    <div
-                      className="pdf-mini-progress"
-                      aria-hidden="true"
-                    >
-                      <span
-                        style={{
-                          width: `${pdfProgress}%`,
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <span className="upload-action">
-                  {isExtractingPdf
-                    ? `${pdfProgress}%`
-                    : pdfFileName
-                      ? "Replace"
-                      : "Choose file"}
-                </span>
-              </button>
-            </section>
+        <main className="library-page-main">
+          <section className="library-page-intro">
+            <span className="eyebrow">Saved on this device</span>
+            <h1>Your local library</h1>
+            <p>
+              Continue saved texts, search your collection and manage
+              reading progress without signing in.
+            </p>
           </section>
 
           <section
             ref={librarySectionRef}
             id="local-library"
-            className="library-section"
+            className="library-section library-section-standalone"
             aria-labelledby="library-heading"
           >
             <div className="library-header">
               <div>
-                <span className="eyebrow">
-                  Saved locally on this device
-                </span>
-
-                <h2 id="library-heading">Local library</h2>
+                <span className="eyebrow">Reading collection</span>
+                <h2 id="library-heading">Saved texts</h2>
               </div>
 
               <span className="library-count">
@@ -1142,8 +1005,11 @@ function App() {
               <div className="empty-library">
                 <strong>Your local library is empty.</strong>
                 <span>
-                  Paste a text or upload a PDF to save your first reading.
+                  Return home to paste a text or upload a PDF.
                 </span>
+                <button type="button" onClick={() => navigate("/")}>
+                  Add your first text
+                </button>
               </div>
             ) : visibleDocuments.length === 0 ? (
               <div className="empty-library search-empty-state">
@@ -1303,6 +1169,269 @@ function App() {
               </div>
             )}
           </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (screen === "home") {
+    return (
+      <div className="landing-shell">
+        <header className="site-header">
+          <button
+            className="brand brand-button"
+            type="button"
+            onClick={() => navigate("/")}
+            aria-label="RSVP Reader home"
+          >
+            <span className="brand-mark" />
+            RSVP Reader
+          </button>
+
+          <div className="header-actions">
+            <button
+              className="library-nav-button"
+              type="button"
+              onClick={openLibrary}
+              aria-controls="local-library"
+            >
+              Library
+              <span className="library-nav-count">
+                {savedDocuments.length}
+              </span>
+            </button>
+
+            <button
+              className="sign-in-button"
+              type="button"
+              title="Account support will be added later"
+            >
+              Sign in
+            </button>
+          </div>
+        </header>
+
+        <main className="landing-main">
+          <section className="hero-section">
+            <div className="hero-copy">
+              <span className="eyebrow">
+                Read without losing focus
+              </span>
+
+              <h1>
+                Your text.
+                <br />
+                One word at a time.
+              </h1>
+
+              <p className="hero-description">
+                Transform books, articles and documents into a focused
+                speed-reading experience using Rapid Serial Visual
+                Presentation.
+              </p>
+
+              <div className="hero-features">
+                <span>250–2,000 WPM</span>
+                <span>Keyboard controls</span>
+                <span>Local reading library</span>
+              </div>
+
+              <button
+                className="demo-button"
+                type="button"
+                onClick={startDemo}
+              >
+                Try the demonstration
+                <span aria-hidden="true">→</span>
+              </button>
+
+              {latestDocument && (
+                <section
+                  className="continue-reading-card"
+                  aria-label="Continue your latest reading"
+                >
+                  <div className="continue-reading-heading">
+                    <div>
+                      <span className="continue-reading-label">
+                        Continue reading
+                      </span>
+
+                      <h2>{latestDocument.title}</h2>
+                    </div>
+
+                    <span className="continue-reading-percentage">
+                      {latestDocumentProgressLabel}%
+                    </span>
+                  </div>
+
+                  <p>
+                    Word{" "}
+                    {Math.min(
+                      latestDocument.currentWordIndex + 1,
+                      latestDocument.wordCount,
+                    ).toLocaleString("en-US")}{" "}
+                    of{" "}
+                    {latestDocument.wordCount.toLocaleString(
+                      "en-US",
+                    )}
+                  </p>
+
+                  <div
+                    className="continue-reading-progress"
+                    aria-hidden="true"
+                  >
+                    <span
+                      style={{
+                        width: `${latestDocumentProgress}%`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="continue-reading-actions">
+                    <button
+                      className="continue-latest-button"
+                      type="button"
+                      onClick={() =>
+                        continueSavedDocument(latestDocument)
+                      }
+                    >
+                      Continue
+                      <span aria-hidden="true">→</span>
+                    </button>
+
+                    <button
+                      className="view-library-button"
+                      type="button"
+                      onClick={openLibrary}
+                    >
+                      View all saved texts
+                    </button>
+                  </div>
+                </section>
+              )}
+            </div>
+
+            <section className="text-entry-card">
+              <div className="entry-card-header">
+                <div>
+                  <span className="entry-step">New reading</span>
+                  <h2>Paste your text</h2>
+                </div>
+
+                <span className="word-count">
+                  {pastedWordCount.toLocaleString("en-US")} words
+                </span>
+              </div>
+
+              <label className="field-label" htmlFor="document-title">
+                Title
+              </label>
+
+              <input
+                id="document-title"
+                className="title-input"
+                type="text"
+                value={draftTitle}
+                onChange={(event) => {
+                  setDraftTitle(event.target.value);
+                  setFormError("");
+                }}
+                placeholder="Optional document title"
+                maxLength={120}
+              />
+
+              <label className="field-label" htmlFor="document-text">
+                Text
+              </label>
+
+              <textarea
+                id="document-text"
+                className="text-input"
+                value={draftText}
+                onChange={(event) => {
+                  setDraftText(event.target.value);
+                  setFormError("");
+                }}
+                placeholder="Paste a chapter, article or any other text here..."
+                spellCheck
+              />
+
+              {formError && (
+                <p className="form-error" role="alert">
+                  {formError}
+                </p>
+              )}
+
+              <button
+                className="start-reading-button"
+                type="button"
+                onClick={startPastedText}
+                disabled={pastedWordCount === 0}
+              >
+                Start reading
+                <span aria-hidden="true">→</span>
+              </button>
+
+              <input
+                ref={pdfInputRef}
+                className="visually-hidden"
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={handlePdfUpload}
+                disabled={isExtractingPdf}
+                aria-label="Upload a PDF document"
+              />
+
+              <button
+                className="pdf-upload-button"
+                type="button"
+                onClick={() => pdfInputRef.current?.click()}
+                disabled={isExtractingPdf}
+              >
+                <div className="pdf-upload-icon">PDF</div>
+
+                <div className="pdf-upload-copy">
+                  <strong>
+                    {isExtractingPdf
+                      ? "Extracting text..."
+                      : pdfFileName || "Upload a PDF"}
+                  </strong>
+
+                  <span>
+                    {isExtractingPdf
+                      ? `Reading document — ${pdfProgress}%`
+                      : pdfFileName
+                        ? `${pastedWordCount.toLocaleString(
+                            "en-US",
+                          )} words ready`
+                        : "Choose a text-based PDF up to 20 MB."}
+                  </span>
+
+                  {isExtractingPdf && (
+                    <div
+                      className="pdf-mini-progress"
+                      aria-hidden="true"
+                    >
+                      <span
+                        style={{
+                          width: `${pdfProgress}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <span className="upload-action">
+                  {isExtractingPdf
+                    ? `${pdfProgress}%`
+                    : pdfFileName
+                      ? "Replace"
+                      : "Choose file"}
+                </span>
+              </button>
+            </section>
+          </section>
+
         </main>
       </div>
     );

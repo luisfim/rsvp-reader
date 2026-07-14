@@ -8,6 +8,20 @@ import {
 } from "react";
 
 import {
+  AUTO_SAVE_INTERVAL_MS,
+  DEFAULT_FONT_SIZE,
+  DEFAULT_WPM,
+  DEMO_TEXT,
+  FONT_SIZE_STEP,
+  MAX_FONT_SIZE,
+  MAX_PDF_FILE_SIZE,
+  MAX_WPM,
+  MIN_FONT_SIZE,
+  MIN_WPM,
+  WPM_STEP,
+} from "./config/reader";
+
+import {
   createSavedDocument,
   loadSavedDocuments,
   persistSavedDocuments,
@@ -15,114 +29,19 @@ import {
 } from "./lib/library";
 
 import { extractTextFromPdf } from "./lib/pdf";
+import {
+  getFocusLetterIndex,
+  getWordDelay,
+  tokenizeText,
+} from "./lib/reader";
+
+import type {
+  ReaderOptions,
+  ReaderSnapshot,
+  Screen,
+} from "./types/reader";
+
 import "./App.css";
-
-const DEMO_TEXT = `
-Rapid Serial Visual Presentation is a reading method in which words are
-shown one at a time in the same position. By keeping the eyes focused on a
-single point, the reader can move through a text without constantly shifting
-attention across the page. This version demonstrates the core reading
-experience. Users can paste their own text, upload PDF documents, save
-readings locally and continue from exactly where they stopped.
-`;
-
-const MIN_WPM = 250;
-const MAX_WPM = 2000;
-const WPM_STEP = 25;
-const DEFAULT_WPM = 400;
-
-const MIN_FONT_SIZE = 48;
-const MAX_FONT_SIZE = 112;
-const FONT_SIZE_STEP = 8;
-const DEFAULT_FONT_SIZE = 72;
-
-const MAX_PDF_FILE_SIZE = 20 * 1024 * 1024;
-const AUTO_SAVE_INTERVAL_MS = 1000;
-
-type Screen = "home" | "reader";
-
-interface ReaderOptions {
-  documentId?: string | null;
-  startIndex?: number;
-  savedWordsPerMinute?: number;
-  savedFontSize?: number;
-  savedNaturalPauses?: boolean;
-}
-
-interface ReaderSnapshot {
-  activeDocumentId: string | null;
-  currentWordIndex: number;
-  wordsPerMinute: number;
-  fontSize: number;
-  useNaturalPauses: boolean;
-}
-
-function tokenizeText(text: string): string[] {
-  return text.trim().split(/\s+/).filter(Boolean);
-}
-
-function getFocusLetterIndex(word: string): number {
-  const cleanWord = word.replace(
-    /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,
-    "",
-  );
-
-  if (!cleanWord) {
-    return Math.max(0, Math.floor((word.length - 1) / 2));
-  }
-
-  const cleanWordStart = word.indexOf(cleanWord);
-  let focusPosition: number;
-
-  if (cleanWord.length <= 1) {
-    focusPosition = 0;
-  } else if (cleanWord.length <= 5) {
-    focusPosition = 1;
-  } else if (cleanWord.length <= 9) {
-    focusPosition = 2;
-  } else if (cleanWord.length <= 13) {
-    focusPosition = 3;
-  } else {
-    focusPosition = 4;
-  }
-
-  return cleanWordStart + Math.min(focusPosition, cleanWord.length - 1);
-}
-
-function getWordDelay(
-  word: string,
-  wordsPerMinute: number,
-  useNaturalPauses: boolean,
-): number {
-  const baseDelay = 60_000 / wordsPerMinute;
-
-  if (!useNaturalPauses) {
-    return baseDelay;
-  }
-
-  let multiplier = 1;
-
-  const cleanWord = word.replace(
-    /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,
-    "",
-  );
-
-  const wordLength = Array.from(cleanWord).length;
-
-  if (wordLength >= 13) {
-    multiplier += 0.45;
-  } else if (wordLength >= 9) {
-    multiplier += 0.25;
-  }
-
-  if (/[.!?]["')\]]?$/.test(word)) {
-    multiplier += 1.1;
-  } else if (/[,;:]["')\]]?$/.test(word)) {
-    multiplier += 0.45;
-  }
-
-  return baseDelay * multiplier;
-}
 
 function App() {
   const [screen, setScreen] = useState<Screen>("home");

@@ -19,8 +19,8 @@ upload PDF documents, create an account, save books and continue reading
 from exactly where they stopped.
 `;
 
-const MIN_WPM = 300;
-const MAX_WPM = 600;
+const MIN_WPM = 250;
+const MAX_WPM = 3000;
 const WPM_STEP = 25;
 
 const MIN_FONT_SIZE = 48;
@@ -66,6 +66,41 @@ function getFocusLetterIndex(word: string): number {
   return cleanWordStart + Math.min(focusPosition, cleanWord.length - 1);
 }
 
+function getWordDelay(
+  word: string,
+  wordsPerMinute: number,
+  useNaturalPauses: boolean,
+): number {
+  const baseDelay = 60_000 / wordsPerMinute;
+
+  if (!useNaturalPauses) {
+    return baseDelay;
+  }
+
+  let delayMultiplier = 1;
+
+  const cleanWord = word.replace(
+    /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,
+    "",
+  );
+
+  const wordLength = Array.from(cleanWord).length;
+
+  if (wordLength >= 13) {
+    delayMultiplier += 0.45;
+  } else if (wordLength >= 9) {
+    delayMultiplier += 0.25;
+  }
+
+  if (/[.!?]["')\]]?$/.test(word)) {
+    delayMultiplier += 1.1;
+  } else if (/[,;:]["')\]]?$/.test(word)) {
+    delayMultiplier += 0.45;
+  }
+
+  return baseDelay * delayMultiplier;
+}
+
 function App() {
   const [screen, setScreen] = useState<Screen>("home");
 
@@ -83,8 +118,15 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [wordsPerMinute, setWordsPerMinute] = useState(400);
   const [fontSize, setFontSize] = useState(72);
+  const [useNaturalPauses, setUseNaturalPauses] = useState(false);
 
-  const activeBackgroundWordRef = useRef<HTMLSpanElement | null>(null);
+  const documentLayerRef = useRef<HTMLDivElement | null>(null);
+
+  const activeBackgroundWordRef =
+    useRef<HTMLSpanElement | null>(null);
+
+  const lastBackgroundLineTopRef =
+    useRef<number | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   const pastedWordCount = useMemo(
@@ -222,14 +264,17 @@ function App() {
       return;
     }
 
-    if (currentWordIndex >= words.length - 1) {
-      setCurrentWordIndex(0);
-      setIsPlaying(true);
+    if (isPlaying) {
+      setIsPlaying(false);
       return;
     }
 
-    setIsPlaying((currentValue) => !currentValue);
-  }, [currentWordIndex, words.length]);
+    if (currentWordIndex >= words.length - 1) {
+      setCurrentWordIndex(0);
+    }
+
+    setIsPlaying(true);
+  }, [currentWordIndex, isPlaying, words.length]);
 
   const previousWord = useCallback(() => {
     setIsPlaying(false);
@@ -285,13 +330,23 @@ function App() {
       return;
     }
 
-    const delayInMilliseconds = 60_000 / wordsPerMinute;
+    const delayInMilliseconds = getWordDelay(
+      words[currentWordIndex] ?? "",
+      wordsPerMinute,
+      useNaturalPauses,
+    );
 
     const timer = window.setTimeout(() => {
-      setCurrentWordIndex((currentIndex) =>
-        Math.min(words.length - 1, currentIndex + 1),
+      const nextIndex = currentWordIndex + 1;
+
+      setCurrentWordIndex(
+        Math.min(nextIndex, words.length - 1),
       );
-    }, delayInMilliseconds);
+
+      if (nextIndex >= words.length - 1) {
+        setIsPlaying(false);
+      }
+    }, Math.max(20, delayInMilliseconds));
 
     return () => {
       window.clearTimeout(timer);
@@ -300,7 +355,8 @@ function App() {
     currentWordIndex,
     isPlaying,
     screen,
-    words.length,
+    useNaturalPauses,
+    words,
     wordsPerMinute,
   ]);
 
@@ -309,12 +365,40 @@ function App() {
       return;
     }
 
-    activeBackgroundWordRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-      inline: "center",
+    const documentLayer = documentLayerRef.current;
+    const activeWord = activeBackgroundWordRef.current;
+
+    if (!documentLayer || !activeWord) {
+      return;
+    }
+
+    const layerRect = documentLayer.getBoundingClientRect();
+    const wordRect = activeWord.getBoundingClientRect();
+
+    const lineTop =
+      documentLayer.scrollTop +
+      wordRect.top -
+      layerRect.top -
+      24;
+
+    const safeLineTop = Math.max(0, lineTop);
+
+    const previousLineTop = lastBackgroundLineTopRef.current;
+
+    if (
+      previousLineTop !== null &&
+      Math.abs(previousLineTop - safeLineTop) < 2
+    ) {
+      return;
+    }
+
+    lastBackgroundLineTopRef.current = safeLineTop;
+
+    documentLayer.scrollTo({
+      top: safeLineTop,
+      behavior: isPlaying ? "auto" : "smooth",
     });
-  }, [currentWordIndex, screen]);
+  }, [currentWordIndex, isPlaying, screen]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -441,7 +525,7 @@ function App() {
               </p>
 
               <div className="hero-features">
-                <span>300–600 WPM</span>
+                <span>250–3000 WPM</span>
                 <span>Keyboard controls</span>
                 <span>Distraction-free</span>
               </div>
@@ -595,7 +679,11 @@ function App() {
         </button>
       </header>
 
-      <div className="document-layer" aria-hidden="true">
+      <div
+        ref={documentLayerRef}
+        className="document-layer"
+        aria-hidden="true"
+      >
         <article className="document-page">
           <p>
             {words.map((word, index) => (
@@ -727,6 +815,36 @@ function App() {
                 >
                   +
                 </button>
+
+                <div className="setting-control natural-pauses-control">
+                  <div className="natural-pauses-description">
+                    <span className="setting-label">Natural pauses</span>
+
+                    <span className="setting-description">
+                      Add extra time after punctuation and long words.
+                    </span>
+                  </div>
+
+                  <button
+                    className={
+                      useNaturalPauses
+                        ? "timing-toggle active"
+                        : "timing-toggle"
+                    }
+                    type="button"
+                    onClick={() => {
+                      setUseNaturalPauses((currentValue) => !currentValue);
+                    }}
+                    aria-pressed={useNaturalPauses}
+                  >
+                    <span className="timing-toggle-track">
+                      <span className="timing-toggle-knob" />
+                    </span>
+
+                    {useNaturalPauses ? "On" : "Off"}
+                  </button>
+                </div>
+
               </div>
             </div>
           </div>

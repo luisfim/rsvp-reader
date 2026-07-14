@@ -45,6 +45,8 @@ import { ReaderPage } from "./components/reader/ReaderPage";
 import { HomePage } from "./pages/HomePage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import { useReaderFocusMode } from "./hooks/useReaderFocusMode";
+import { useReaderKeyboardControls } from "./hooks/useReaderKeyboardControls";
 import { useRsvpPlayer } from "./hooks/useRsvpPlayer";
 import type {
   CloudConnectionStatus,
@@ -110,10 +112,6 @@ function App() {
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(0);
 
-  const [isFocusMode, setIsFocusMode] = useState(false);
-  const [areReaderControlsVisible, setAreReaderControlsVisible] =
-    useState(true);
-
   const [savedDocuments, setSavedDocuments] = useState<SavedDocument[]>(
     () => loadSavedDocuments(),
   );
@@ -137,7 +135,6 @@ function App() {
   const [renameValue, setRenameValue] = useState("");
 
   const librarySectionRef = useRef<HTMLElement | null>(null);
-  const readerShellRef = useRef<HTMLDivElement | null>(null);
   const documentLayerRef = useRef<HTMLDivElement | null>(null);
   const activeBackgroundWordRef = useRef<HTMLSpanElement | null>(null);
   const lastBackgroundLineTopRef = useRef<number | null>(null);
@@ -148,7 +145,6 @@ function App() {
   const cloudSyncInProgressRef = useRef(false);
   const cloudSyncRequestedRef = useRef(false);
   const offlineCloudStateRef = useRef<OfflineCloudState | null>(null);
-  const controlsHideTimerRef = useRef<number | null>(null);
   const savedDocumentsRef = useRef<SavedDocument[]>(savedDocuments);
 
   const {
@@ -176,6 +172,18 @@ function App() {
     toggleNaturalPauses,
     getSnapshot,
   } = useRsvpPlayer({ isActive: screen === "reader" });
+
+  const {
+    readerShellRef,
+    isFocusMode,
+    areReaderControlsVisible,
+    revealReaderControls,
+    toggleFocusMode,
+    exitFocusMode,
+  } = useReaderFocusMode({
+    isActive: screen === "reader",
+    isPlaying,
+  });
 
 
   const pastedWordCount = useMemo(
@@ -948,17 +956,14 @@ function App() {
     saveActiveProgress();
     persistCurrentSnapshot();
     pauseReader();
-    setIsFocusMode(false);
-
-    if (document.fullscreenElement) {
-      void document.exitFullscreen().catch(() => undefined);
-    }
+    void exitFocusMode();
 
     clearActiveDocument();
     setScreen("home");
     navigate("/");
   }, [
     clearActiveDocument,
+    exitFocusMode,
     navigate,
     pauseReader,
     persistCurrentSnapshot,
@@ -969,82 +974,48 @@ function App() {
     saveActiveProgress();
     persistCurrentSnapshot();
     pauseReader();
-    setIsFocusMode(false);
-
-    if (document.fullscreenElement) {
-      void document.exitFullscreen().catch(() => undefined);
-    }
+    void exitFocusMode();
 
     clearActiveDocument();
     setScreen("home");
     navigate("/library");
   }, [
     clearActiveDocument,
+    exitFocusMode,
     navigate,
     pauseReader,
     persistCurrentSnapshot,
     saveActiveProgress,
   ]);
 
-  const exitFocusMode = useCallback(async () => {
-    setIsFocusMode(false);
-    setAreReaderControlsVisible(true);
-
-    if (document.fullscreenElement) {
-      try {
-        await document.exitFullscreen();
-      } catch {
-        // The browser may already be leaving fullscreen.
-      }
-    }
-  }, []);
-
-  const toggleFocusMode = useCallback(async () => {
-    if (isFocusMode) {
-      await exitFocusMode();
-      return;
-    }
-
-    setIsFocusMode(true);
-    setAreReaderControlsVisible(true);
-
-    if (!document.fullscreenElement && readerShellRef.current) {
-      try {
-        await readerShellRef.current.requestFullscreen();
-      } catch {
-        // Focus mode still works when fullscreen is unavailable or blocked.
-      }
-    }
-  }, [exitFocusMode, isFocusMode]);
-
-  const revealReaderControls = useCallback(() => {
-    if (controlsHideTimerRef.current !== null) {
-      window.clearTimeout(controlsHideTimerRef.current);
-      controlsHideTimerRef.current = null;
-    }
-
-    setAreReaderControlsVisible(true);
-
-    if (isFocusMode && isPlaying) {
-      controlsHideTimerRef.current = window.setTimeout(() => {
-        setAreReaderControlsVisible(false);
-        controlsHideTimerRef.current = null;
-      }, 2200);
-    }
-  }, [isFocusMode, isPlaying]);
-
   const seekToWord = useCallback(
     (requestedIndex: number) => {
       seekPlayerToWord(requestedIndex);
-      setAreReaderControlsVisible(true);
+      revealReaderControls();
     },
-    [seekPlayerToWord],
+    [revealReaderControls, seekPlayerToWord],
   );
 
   const restartCurrentReading = useCallback(() => {
     restartPlayerReading();
-    setAreReaderControlsVisible(true);
-  }, [restartPlayerReading]);
+    revealReaderControls();
+  }, [restartPlayerReading, revealReaderControls]);
+
+  useReaderKeyboardControls({
+    enabled: screen === "reader",
+    wordCount: words.length,
+    isFocusMode,
+    onRevealControls: revealReaderControls,
+    onTogglePlayback: togglePlayback,
+    onPreviousWord: previousWord,
+    onNextWord: nextWord,
+    onIncreaseSpeed: increaseSpeed,
+    onDecreaseSpeed: decreaseSpeed,
+    onToggleFocusMode: toggleFocusMode,
+    onExitFocusMode: exitFocusMode,
+    onSeekToWord: seekToWord,
+    onExitReader: returnHome,
+  });
 
   useEffect(() => {
     if (screen !== "reader" || !activeDocumentId) {
@@ -1142,46 +1113,13 @@ function App() {
   }, [currentWordIndex, isPlaying, screen]);
 
   useEffect(() => {
-    revealReaderControls();
-
-    return () => {
-      if (controlsHideTimerRef.current !== null) {
-        window.clearTimeout(controlsHideTimerRef.current);
-        controlsHideTimerRef.current = null;
-      }
-    };
-  }, [revealReaderControls]);
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        setIsFocusMode(false);
-        setAreReaderControlsVisible(true);
-      }
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener(
-        "fullscreenchange",
-        handleFullscreenChange,
-      );
-    };
-  }, []);
-
-  useEffect(() => {
     const readerMatch = location.pathname.match(/^\/reader\/([^/]+)$/);
 
     if (!readerMatch) {
       if (screen === "reader") {
         persistCurrentSnapshot();
         pauseReader();
-        setIsFocusMode(false);
-
-        if (document.fullscreenElement) {
-          void document.exitFullscreen().catch(() => undefined);
-        }
+        void exitFocusMode();
 
         clearActiveDocument();
         setScreen("home");
@@ -1246,6 +1184,7 @@ function App() {
   }, [
     activeDocumentId,
     clearActiveDocument,
+    exitFocusMode,
     isLibraryLoading,
     loadReaderState,
     location.pathname,
@@ -1255,126 +1194,6 @@ function App() {
     savedDocuments,
     screen,
     user,
-  ]);
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (screen !== "reader") {
-        return;
-      }
-
-      const target = event.target as HTMLElement;
-
-      const userIsTyping =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.tagName === "SELECT" ||
-        target.isContentEditable;
-
-      if (userIsTyping) {
-        return;
-      }
-
-      const isNativeButtonActivation =
-        target instanceof HTMLButtonElement &&
-        (event.code === "Space" || event.code === "Enter");
-
-      if (isNativeButtonActivation) {
-        return;
-      }
-
-      const controlledKeys = [
-        "Space",
-        "ArrowLeft",
-        "ArrowRight",
-        "ArrowUp",
-        "ArrowDown",
-        "KeyA",
-        "KeyD",
-        "KeyW",
-        "KeyS",
-        "KeyF",
-        "Home",
-        "End",
-        "Escape",
-      ];
-
-      if (controlledKeys.includes(event.code)) {
-        event.preventDefault();
-      }
-
-      revealReaderControls();
-
-      switch (event.code) {
-        case "Space":
-          if (!event.repeat) {
-            togglePlayback();
-          }
-          break;
-
-        case "ArrowLeft":
-        case "KeyA":
-          previousWord();
-          break;
-
-        case "ArrowRight":
-        case "KeyD":
-          nextWord();
-          break;
-
-        case "ArrowUp":
-        case "KeyW":
-          increaseSpeed();
-          break;
-
-        case "ArrowDown":
-        case "KeyS":
-          decreaseSpeed();
-          break;
-
-        case "KeyF":
-          if (!event.repeat) {
-            void toggleFocusMode();
-          }
-          break;
-
-        case "Home":
-          seekToWord(0);
-          break;
-
-        case "End":
-          seekToWord(words.length - 1);
-          break;
-
-        case "Escape":
-          if (isFocusMode || document.fullscreenElement) {
-            void exitFocusMode();
-          } else {
-            returnHome();
-          }
-          break;
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [
-    decreaseSpeed,
-    increaseSpeed,
-    exitFocusMode,
-    isFocusMode,
-    nextWord,
-    previousWord,
-    returnHome,
-    revealReaderControls,
-    screen,
-    seekToWord,
-    toggleFocusMode,
-    togglePlayback,
-    words.length,
   ]);
 
   const isAuthPage = location.pathname.startsWith("/auth");

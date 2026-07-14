@@ -1,10 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap");
 
 :root {
-  font-family:
-    "Open Sans",
-    Arial,
-    sans-serif;
+  font-family: "Open Sans", Arial, sans-serif;
   color: #f5f5f5;
   background: #030303;
   font-synthesis: none;
@@ -38,7 +35,9 @@ select {
 }
 
 button:focus-visible,
-a:focus-visible {
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
   outline: 2px solid #ff3b3b;
   outline-offset: 3px;
 }
@@ -46,76 +45,4 @@ a:focus-visible {
 ::selection {
   background: rgba(255, 59, 59, 0.35);
   color: #ffffff;
-}
-
-.natural-pauses-control {
-  grid-column: 1 / -1;
-}
-
-.natural-pauses-description {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.setting-description {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 10px;
-  line-height: 1.4;
-}
-
-.timing-toggle {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 9px;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.42);
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.timing-toggle-track {
-  position: relative;
-  display: block;
-  width: 38px;
-  height: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  transition:
-    border-color 160ms ease,
-    background 160ms ease;
-}
-
-.timing-toggle-knob {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.7);
-  transition:
-    transform 180ms ease,
-    background 180ms ease;
-}
-
-.timing-toggle.active {
-  color: rgba(255, 255, 255, 0.82);
-}
-
-.timing-toggle.active .timing-toggle-track {
-  border-color: rgba(255, 59, 59, 0.55);
-  background: rgba(255, 59, 59, 0.2);
-}
-
-.timing-toggle.active .timing-toggle-knob {
-  background: #ff4a4a;
-  transform: translateX(16px);
 }

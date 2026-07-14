@@ -1,32 +1,43 @@
-# React + TypeScript + Vite
+# RSVP Reader — latest replacement files
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Replace the matching files in your existing Vite project:
 
-Currently, two official plugins are available:
+- `src/App.tsx`
+- `src/App.css`
+- `src/index.css`
+- `src/main.tsx`
+- `src/lib/library.ts`
+- `src/lib/pdf.ts`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Make sure PDF.js is installed:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install pdfjs-dist
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Run the development server:
+
+```bash
+npm run dev -- --host 0.0.0.0 --port 4173 --strictPort
+```
+
+Verify the production build:
+
+```bash
+npm run build
+```
+
+## Included in this version
+
+- 250–2,000 WPM, changing in 25 WPM steps
+- Mouse, arrow-key, WASD and Space controls
+- Optional natural pauses
+- Open Sans interface
+- PDF text extraction
+- Local document library
+- Autosave approximately once per second during playback
+- Immediate save when paused or exited
+- Save on page hide, tab switch and refresh
+- Saved word index, WPM, font size and natural-pause preference
+- Continue, restart and delete actions
+- Background line tracking near the top of the reader

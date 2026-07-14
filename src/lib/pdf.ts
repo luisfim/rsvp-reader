@@ -23,10 +23,7 @@ export async function extractTextFromPdf(
   onProgress?: ProgressCallback,
 ): Promise<string> {
   const data = new Uint8Array(await file.arrayBuffer());
-
-  const loadingTask = pdfjsLib.getDocument({
-    data,
-  });
+  const loadingTask = pdfjsLib.getDocument({ data });
 
   try {
     const pdf = await loadingTask.promise;
@@ -39,7 +36,6 @@ export async function extractTextFromPdf(
     ) {
       const page = await pdf.getPage(pageNumber);
       const textContent = await page.getTextContent();
-
       const pageParts: string[] = [];
 
       for (const item of textContent.items) {

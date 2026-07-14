@@ -6,35 +6,59 @@ import {
   useRef,
   useState,
 } from "react";
+
+import {
+  createSavedDocument,
+  loadSavedDocuments,
+  persistSavedDocuments,
+  type SavedDocument,
+} from "./lib/library";
+
 import { extractTextFromPdf } from "./lib/pdf";
 import "./App.css";
 
 const DEMO_TEXT = `
 Rapid Serial Visual Presentation is a reading method in which words are
-displayed one at a time in the same position. By keeping the eyes focused
-on a single point, the reader can move through a text without constantly
-shifting attention across the page. This first version demonstrates the
-core reading experience. Later, users will be able to paste their own text,
-upload PDF documents, create an account, save books and continue reading
-from exactly where they stopped.
+shown one at a time in the same position. By keeping the eyes focused on a
+single point, the reader can move through a text without constantly shifting
+attention across the page. This version demonstrates the core reading
+experience. Users can paste their own text, upload PDF documents, save
+readings locally and continue from exactly where they stopped.
 `;
 
 const MIN_WPM = 250;
-const MAX_WPM = 3000;
+const MAX_WPM = 2000;
 const WPM_STEP = 25;
+const DEFAULT_WPM = 400;
 
 const MIN_FONT_SIZE = 48;
 const MAX_FONT_SIZE = 112;
 const FONT_SIZE_STEP = 8;
+const DEFAULT_FONT_SIZE = 72;
+
 const MAX_PDF_FILE_SIZE = 20 * 1024 * 1024;
+const AUTO_SAVE_INTERVAL_MS = 1000;
 
 type Screen = "home" | "reader";
 
+interface ReaderOptions {
+  documentId?: string | null;
+  startIndex?: number;
+  savedWordsPerMinute?: number;
+  savedFontSize?: number;
+  savedNaturalPauses?: boolean;
+}
+
+interface ReaderSnapshot {
+  activeDocumentId: string | null;
+  currentWordIndex: number;
+  wordsPerMinute: number;
+  fontSize: number;
+  useNaturalPauses: boolean;
+}
+
 function tokenizeText(text: string): string[] {
-  return text
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  return text.trim().split(/\s+/).filter(Boolean);
 }
 
 function getFocusLetterIndex(word: string): number {
@@ -48,7 +72,6 @@ function getFocusLetterIndex(word: string): number {
   }
 
   const cleanWordStart = word.indexOf(cleanWord);
-
   let focusPosition: number;
 
   if (cleanWord.length <= 1) {
@@ -77,7 +100,7 @@ function getWordDelay(
     return baseDelay;
   }
 
-  let delayMultiplier = 1;
+  let multiplier = 1;
 
   const cleanWord = word.replace(
     /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,
@@ -87,18 +110,18 @@ function getWordDelay(
   const wordLength = Array.from(cleanWord).length;
 
   if (wordLength >= 13) {
-    delayMultiplier += 0.45;
+    multiplier += 0.45;
   } else if (wordLength >= 9) {
-    delayMultiplier += 0.25;
+    multiplier += 0.25;
   }
 
   if (/[.!?]["')\]]?$/.test(word)) {
-    delayMultiplier += 1.1;
+    multiplier += 1.1;
   } else if (/[,;:]["')\]]?$/.test(word)) {
-    delayMultiplier += 0.45;
+    multiplier += 0.45;
   }
 
-  return baseDelay * delayMultiplier;
+  return baseDelay * multiplier;
 }
 
 function App() {
@@ -107,6 +130,7 @@ function App() {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftText, setDraftText] = useState("");
   const [formError, setFormError] = useState("");
+
   const [pdfFileName, setPdfFileName] = useState("");
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(0);
@@ -116,18 +140,35 @@ function App() {
 
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [wordsPerMinute, setWordsPerMinute] = useState(400);
-  const [fontSize, setFontSize] = useState(72);
+  const [wordsPerMinute, setWordsPerMinute] = useState(DEFAULT_WPM);
+  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [useNaturalPauses, setUseNaturalPauses] = useState(false);
 
+  const [savedDocuments, setSavedDocuments] = useState<SavedDocument[]>(
+    () => loadSavedDocuments(),
+  );
+
+  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(
+    null,
+  );
+
+  const [libraryError, setLibraryError] = useState("");
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+
   const documentLayerRef = useRef<HTMLDivElement | null>(null);
-
-  const activeBackgroundWordRef =
-    useRef<HTMLSpanElement | null>(null);
-
-  const lastBackgroundLineTopRef =
-    useRef<number | null>(null);
+  const activeBackgroundWordRef = useRef<HTMLSpanElement | null>(null);
+  const lastBackgroundLineTopRef = useRef<number | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
+  const lastAutoSaveAtRef = useRef(0);
+  const savedDocumentsRef = useRef<SavedDocument[]>(savedDocuments);
+
+  const readerSnapshotRef = useRef<ReaderSnapshot>({
+    activeDocumentId: null,
+    currentWordIndex: 0,
+    wordsPerMinute: DEFAULT_WPM,
+    fontSize: DEFAULT_FONT_SIZE,
+    useNaturalPauses: false,
+  });
 
   const pastedWordCount = useMemo(
     () => tokenizeText(draftText).length,
@@ -148,39 +189,122 @@ function App() {
         : 0
       : (currentWordIndex / (words.length - 1)) * 100;
 
+  const remainingWords = Math.max(words.length - currentWordIndex, 0);
+
   const estimatedMinutes =
-    words.length > 0
-      ? Math.max(1, Math.ceil(words.length / wordsPerMinute))
+    remainingWords > 0
+      ? Math.max(1, Math.ceil(remainingWords / wordsPerMinute))
       : 0;
 
-  const openReader = useCallback((title: string, text: string) => {
-    const parsedWords = tokenizeText(text);
+  useEffect(() => {
+    readerSnapshotRef.current = {
+      activeDocumentId,
+      currentWordIndex,
+      wordsPerMinute,
+      fontSize,
+      useNaturalPauses,
+    };
+  }, [
+    activeDocumentId,
+    currentWordIndex,
+    fontSize,
+    useNaturalPauses,
+    wordsPerMinute,
+  ]);
+
+  useEffect(() => {
+    savedDocumentsRef.current = savedDocuments;
+
+    try {
+      persistSavedDocuments(savedDocuments);
+      setLibraryError("");
+    } catch {
+      setLibraryError(
+        "The document could not be saved. Browser storage may be full.",
+      );
+    }
+  }, [savedDocuments]);
+
+  const openReader = useCallback(
+    (
+      title: string,
+      text: string,
+      options: ReaderOptions = {},
+    ) => {
+      const parsedWords = tokenizeText(text);
+
+      if (parsedWords.length === 0) {
+        setFormError("Paste some text before starting.");
+        return;
+      }
+
+      const requestedIndex = options.startIndex ?? 0;
+      const safeIndex = Math.min(
+        Math.max(requestedIndex, 0),
+        parsedWords.length - 1,
+      );
+
+      const savedWpm = options.savedWordsPerMinute ?? DEFAULT_WPM;
+
+      setWords(parsedWords);
+      setDocumentTitle(title.trim() || "Untitled text");
+      setCurrentWordIndex(safeIndex);
+      setWordsPerMinute(Math.min(Math.max(savedWpm, MIN_WPM), MAX_WPM));
+      setFontSize(options.savedFontSize ?? DEFAULT_FONT_SIZE);
+      setUseNaturalPauses(options.savedNaturalPauses ?? false);
+      setActiveDocumentId(options.documentId ?? null);
+      setIsPlaying(false);
+      setFormError("");
+      setScreen("reader");
+      setLastSavedAt(options.documentId ? Date.now() : null);
+
+      lastBackgroundLineTopRef.current = null;
+      lastAutoSaveAtRef.current = 0;
+    },
+    [],
+  );
+
+  const startPastedText = () => {
+    const parsedWords = tokenizeText(draftText);
 
     if (parsedWords.length === 0) {
       setFormError("Paste some text before starting.");
       return;
     }
 
-    setWords(parsedWords);
-    setDocumentTitle(title.trim() || "Untitled text");
-    setCurrentWordIndex(0);
-    setIsPlaying(false);
-    setFormError("");
-    setScreen("reader");
-  }, []);
+    const title = draftTitle.trim() || "Untitled text";
 
-  const startPastedText = () => {
-    openReader(draftTitle, draftText);
+    const newDocument = createSavedDocument({
+      title,
+      text: draftText,
+      wordCount: parsedWords.length,
+      wordsPerMinute: DEFAULT_WPM,
+      fontSize: DEFAULT_FONT_SIZE,
+      useNaturalPauses: false,
+    });
+
+    setSavedDocuments((currentDocuments) => [
+      newDocument,
+      ...currentDocuments,
+    ]);
+
+    openReader(title, draftText, {
+      documentId: newDocument.id,
+      startIndex: 0,
+      savedWordsPerMinute: newDocument.wordsPerMinute,
+      savedFontSize: newDocument.fontSize,
+      savedNaturalPauses: newDocument.useNaturalPauses,
+    });
   };
 
   const startDemo = () => {
     openReader("RSVP demonstration", DEMO_TEXT);
   };
+
   const handlePdfUpload = async (
     event: ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
-
     event.target.value = "";
 
     if (!file) {
@@ -212,11 +336,9 @@ function App() {
       const extractedText = await extractTextFromPdf(
         file,
         (currentPage, totalPages) => {
-          const progress = Math.round(
-            (currentPage / totalPages) * 100,
+          setPdfProgress(
+            Math.round((currentPage / totalPages) * 100),
           );
-
-          setPdfProgress(progress);
         },
       );
 
@@ -243,7 +365,6 @@ function App() {
     } catch (error) {
       setPdfFileName("");
       setPdfProgress(0);
-
       setFormError(
         error instanceof Error
           ? error.message
@@ -254,10 +375,124 @@ function App() {
     }
   };
 
-  const returnHome = useCallback(() => {
-    setIsPlaying(false);
-    setScreen("home");
+  const continueSavedDocument = (savedDocument: SavedDocument) => {
+    openReader(savedDocument.title, savedDocument.text, {
+      documentId: savedDocument.id,
+      startIndex: savedDocument.currentWordIndex,
+      savedWordsPerMinute: savedDocument.wordsPerMinute,
+      savedFontSize: savedDocument.fontSize,
+      savedNaturalPauses: savedDocument.useNaturalPauses,
+    });
+  };
+
+  const restartSavedDocument = (savedDocument: SavedDocument) => {
+    const updatedAt = new Date().toISOString();
+
+    setSavedDocuments((currentDocuments) =>
+      currentDocuments.map((document) =>
+        document.id === savedDocument.id
+          ? {
+              ...document,
+              currentWordIndex: 0,
+              updatedAt,
+            }
+          : document,
+      ),
+    );
+
+    openReader(savedDocument.title, savedDocument.text, {
+      documentId: savedDocument.id,
+      startIndex: 0,
+      savedWordsPerMinute: savedDocument.wordsPerMinute,
+      savedFontSize: savedDocument.fontSize,
+      savedNaturalPauses: savedDocument.useNaturalPauses,
+    });
+  };
+
+  const deleteSavedDocument = (savedDocument: SavedDocument) => {
+    const shouldDelete = window.confirm(
+      `Delete "${savedDocument.title}" from your library?`,
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setSavedDocuments((currentDocuments) =>
+      currentDocuments.filter(
+        (document) => document.id !== savedDocument.id,
+      ),
+    );
+  };
+
+  const saveActiveProgress = useCallback(() => {
+    if (!activeDocumentId) {
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+
+    setSavedDocuments((currentDocuments) =>
+      currentDocuments.map((document) =>
+        document.id === activeDocumentId
+          ? {
+              ...document,
+              currentWordIndex,
+              wordsPerMinute,
+              fontSize,
+              useNaturalPauses,
+              updatedAt,
+            }
+          : document,
+      ),
+    );
+
+    setLastSavedAt(Date.now());
+  }, [
+    activeDocumentId,
+    currentWordIndex,
+    fontSize,
+    useNaturalPauses,
+    wordsPerMinute,
+  ]);
+
+  const persistCurrentSnapshot = useCallback(() => {
+    const snapshot = readerSnapshotRef.current;
+
+    if (!snapshot.activeDocumentId) {
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+
+    const updatedDocuments = savedDocumentsRef.current.map((document) =>
+      document.id === snapshot.activeDocumentId
+        ? {
+            ...document,
+            currentWordIndex: snapshot.currentWordIndex,
+            wordsPerMinute: snapshot.wordsPerMinute,
+            fontSize: snapshot.fontSize,
+            useNaturalPauses: snapshot.useNaturalPauses,
+            updatedAt,
+          }
+        : document,
+    );
+
+    try {
+      persistSavedDocuments(updatedDocuments);
+      savedDocumentsRef.current = updatedDocuments;
+    } catch {
+      // A pagehide event has no reliable place to display an error.
+    }
   }, []);
+
+  const returnHome = useCallback(() => {
+    saveActiveProgress();
+    persistCurrentSnapshot();
+    setIsPlaying(false);
+    setActiveDocumentId(null);
+    setScreen("home");
+  }, [persistCurrentSnapshot, saveActiveProgress]);
 
   const togglePlayback = useCallback(() => {
     if (words.length === 0) {
@@ -278,7 +513,6 @@ function App() {
 
   const previousWord = useCallback(() => {
     setIsPlaying(false);
-
     setCurrentWordIndex((currentIndex) =>
       Math.max(0, currentIndex - 1),
     );
@@ -286,7 +520,6 @@ function App() {
 
   const nextWord = useCallback(() => {
     setIsPlaying(false);
-
     setCurrentWordIndex((currentIndex) =>
       Math.min(words.length - 1, currentIndex + 1),
     );
@@ -361,6 +594,59 @@ function App() {
   ]);
 
   useEffect(() => {
+    if (screen !== "reader" || !activeDocumentId) {
+      return;
+    }
+
+    const now = Date.now();
+
+    const shouldSave =
+      !isPlaying ||
+      currentWordIndex >= words.length - 1 ||
+      now - lastAutoSaveAtRef.current >= AUTO_SAVE_INTERVAL_MS;
+
+    if (!shouldSave) {
+      return;
+    }
+
+    lastAutoSaveAtRef.current = now;
+    saveActiveProgress();
+  }, [
+    activeDocumentId,
+    currentWordIndex,
+    isPlaying,
+    saveActiveProgress,
+    screen,
+    words.length,
+  ]);
+
+  useEffect(() => {
+    const handlePageHide = () => {
+      persistCurrentSnapshot();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        persistCurrentSnapshot();
+      }
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
+  }, [persistCurrentSnapshot]);
+
+  useEffect(() => {
     if (screen !== "reader") {
       return;
     }
@@ -375,27 +661,29 @@ function App() {
     const layerRect = documentLayer.getBoundingClientRect();
     const wordRect = activeWord.getBoundingClientRect();
 
-    const lineTop =
-      documentLayer.scrollTop +
-      wordRect.top -
-      layerRect.top -
-      24;
-
-    const safeLineTop = Math.max(0, lineTop);
+    const lineTop = Math.max(
+      0,
+      Math.round(
+        documentLayer.scrollTop +
+          wordRect.top -
+          layerRect.top -
+          28,
+      ),
+    );
 
     const previousLineTop = lastBackgroundLineTopRef.current;
 
     if (
       previousLineTop !== null &&
-      Math.abs(previousLineTop - safeLineTop) < 2
+      Math.abs(previousLineTop - lineTop) < 2
     ) {
       return;
     }
 
-    lastBackgroundLineTopRef.current = safeLineTop;
+    lastBackgroundLineTopRef.current = lineTop;
 
     documentLayer.scrollTo({
-      top: safeLineTop,
+      top: lineTop,
       behavior: isPlaying ? "auto" : "smooth",
     });
   }, [currentWordIndex, isPlaying, screen]);
@@ -415,6 +703,14 @@ function App() {
         target.isContentEditable;
 
       if (userIsTyping) {
+        return;
+      }
+
+      const isNativeButtonActivation =
+        target instanceof HTMLButtonElement &&
+        (event.code === "Space" || event.code === "Enter");
+
+      if (isNativeButtonActivation) {
         return;
       }
 
@@ -525,9 +821,9 @@ function App() {
               </p>
 
               <div className="hero-features">
-                <span>250–3000 WPM</span>
+                <span>250–2,000 WPM</span>
                 <span>Keyboard controls</span>
-                <span>Distraction-free</span>
+                <span>Local reading library</span>
               </div>
 
               <button
@@ -601,55 +897,194 @@ function App() {
                 <span aria-hidden="true">→</span>
               </button>
 
-                <input
-                  ref={pdfInputRef}
-                  className="visually-hidden"
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={handlePdfUpload}
-                  disabled={isExtractingPdf}
-                  aria-label="Upload a PDF document"
-                />
+              <input
+                ref={pdfInputRef}
+                className="visually-hidden"
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={handlePdfUpload}
+                disabled={isExtractingPdf}
+                aria-label="Upload a PDF document"
+              />
 
-                <button
-                  className="pdf-upload-button"
-                  type="button"
-                  onClick={() => pdfInputRef.current?.click()}
-                  disabled={isExtractingPdf}
-                >
-                  <div className="pdf-upload-icon">PDF</div>
+              <button
+                className="pdf-upload-button"
+                type="button"
+                onClick={() => pdfInputRef.current?.click()}
+                disabled={isExtractingPdf}
+              >
+                <div className="pdf-upload-icon">PDF</div>
 
-                  <div className="pdf-upload-copy">
-                    <strong>
-                      {isExtractingPdf
-                        ? "Extracting text..."
-                        : pdfFileName || "Upload a PDF"}
-                    </strong>
-
-                    <span>
-                      {isExtractingPdf
-                        ? `Reading document — ${pdfProgress}%`
-                        : pdfFileName
-                          ? `${pastedWordCount.toLocaleString("en-US")} words ready`
-                          : "Choose a text-based PDF up to 20 MB."}
-                    </span>
-
-                    {isExtractingPdf && (
-                      <div className="pdf-mini-progress" aria-hidden="true">
-                        <span style={{ width: `${pdfProgress}%` }} />
-                      </div>
-                    )}
-                  </div>
-
-                  <span className="upload-action">
+                <div className="pdf-upload-copy">
+                  <strong>
                     {isExtractingPdf
-                      ? `${pdfProgress}%`
+                      ? "Extracting text..."
+                      : pdfFileName || "Upload a PDF"}
+                  </strong>
+
+                  <span>
+                    {isExtractingPdf
+                      ? `Reading document — ${pdfProgress}%`
                       : pdfFileName
-                        ? "Replace"
-                        : "Choose file"}
+                        ? `${pastedWordCount.toLocaleString(
+                            "en-US",
+                          )} words ready`
+                        : "Choose a text-based PDF up to 20 MB."}
                   </span>
-                </button>
+
+                  {isExtractingPdf && (
+                    <div
+                      className="pdf-mini-progress"
+                      aria-hidden="true"
+                    >
+                      <span
+                        style={{
+                          width: `${pdfProgress}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <span className="upload-action">
+                  {isExtractingPdf
+                    ? `${pdfProgress}%`
+                    : pdfFileName
+                      ? "Replace"
+                      : "Choose file"}
+                </span>
+              </button>
             </section>
+          </section>
+
+          <section
+            className="library-section"
+            aria-labelledby="library-heading"
+          >
+            <div className="library-header">
+              <div>
+                <span className="eyebrow">
+                  Stored on this device
+                </span>
+
+                <h2 id="library-heading">Your library</h2>
+              </div>
+
+              <span className="library-count">
+                {savedDocuments.length}{" "}
+                {savedDocuments.length === 1
+                  ? "document"
+                  : "documents"}
+              </span>
+            </div>
+
+            {libraryError && (
+              <p className="library-error" role="alert">
+                {libraryError}
+              </p>
+            )}
+
+            {savedDocuments.length === 0 ? (
+              <div className="empty-library">
+                <strong>Your library is empty.</strong>
+                <span>
+                  Paste a text or upload a PDF to save your first reading.
+                </span>
+              </div>
+            ) : (
+              <div className="document-grid">
+                {savedDocuments.map((savedDocument) => {
+                  const exactDocumentProgress =
+                    savedDocument.wordCount <= 1
+                      ? 0
+                      : (savedDocument.currentWordIndex /
+                          (savedDocument.wordCount - 1)) *
+                        100;
+
+                  const progressLabel =
+                    exactDocumentProgress > 0 &&
+                    exactDocumentProgress < 1
+                      ? "<1"
+                      : Math.round(exactDocumentProgress).toString();
+
+                  return (
+                    <article
+                      className="saved-document-card"
+                      key={savedDocument.id}
+                    >
+                      <div className="saved-document-main">
+                        <span className="saved-document-date">
+                          Updated{" "}
+                          {new Date(
+                            savedDocument.updatedAt,
+                          ).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+
+                        <h3>{savedDocument.title}</h3>
+
+                        <p>
+                          Word{" "}
+                          {Math.min(
+                            savedDocument.currentWordIndex + 1,
+                            savedDocument.wordCount,
+                          ).toLocaleString("en-US")}{" "}
+                          of{" "}
+                          {savedDocument.wordCount.toLocaleString(
+                            "en-US",
+                          )}{" "}
+                          · {progressLabel}% complete
+                        </p>
+                      </div>
+
+                      <div className="saved-document-progress">
+                        <span
+                          style={{
+                            width: `${exactDocumentProgress}%`,
+                          }}
+                        />
+                      </div>
+
+                      <div className="saved-document-actions">
+                        <button
+                          className="continue-document-button"
+                          type="button"
+                          onClick={() =>
+                            continueSavedDocument(savedDocument)
+                          }
+                        >
+                          {savedDocument.currentWordIndex > 0
+                            ? "Continue"
+                            : "Start"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            restartSavedDocument(savedDocument)
+                          }
+                        >
+                          Restart
+                        </button>
+
+                        <button
+                          className="delete-document-button"
+                          type="button"
+                          onClick={() =>
+                            deleteSavedDocument(savedDocument)
+                          }
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </main>
       </div>
@@ -715,7 +1150,12 @@ function App() {
             <span>{documentTitle}</span>
 
             <span>
-              {currentWordIndex + 1} / {words.length}
+              {activeDocumentId
+                ? lastSavedAt
+                  ? "Saved locally"
+                  : "Saving..."
+                : "Demo not saved"}{" "}
+              · {currentWordIndex + 1} / {words.length}
             </span>
           </div>
 
@@ -747,7 +1187,10 @@ function App() {
               className="control-button primary"
               type="button"
               onClick={togglePlayback}
-              aria-label={isPlaying ? "Pause reading" : "Start reading"}
+              disabled={words.length === 0}
+              aria-label={
+                isPlaying ? "Pause reading" : "Start reading"
+              }
               title="Play or pause — Space"
             >
               {isPlaying ? "Pause" : "Play"}
@@ -779,7 +1222,9 @@ function App() {
                   −
                 </button>
 
-                <strong>{wordsPerMinute} WPM</strong>
+                <strong>
+                  {wordsPerMinute.toLocaleString("en-US")} WPM
+                </strong>
 
                 <button
                   type="button"
@@ -815,45 +1260,45 @@ function App() {
                 >
                   +
                 </button>
-
-                <div className="setting-control natural-pauses-control">
-                  <div className="natural-pauses-description">
-                    <span className="setting-label">Natural pauses</span>
-
-                    <span className="setting-description">
-                      Add extra time after punctuation and long words.
-                    </span>
-                  </div>
-
-                  <button
-                    className={
-                      useNaturalPauses
-                        ? "timing-toggle active"
-                        : "timing-toggle"
-                    }
-                    type="button"
-                    onClick={() => {
-                      setUseNaturalPauses((currentValue) => !currentValue);
-                    }}
-                    aria-pressed={useNaturalPauses}
-                  >
-                    <span className="timing-toggle-track">
-                      <span className="timing-toggle-knob" />
-                    </span>
-
-                    {useNaturalPauses ? "On" : "Off"}
-                  </button>
-                </div>
-
               </div>
+            </div>
+
+            <div className="setting-control natural-pauses-control">
+              <div className="natural-pauses-description">
+                <span className="setting-label">Natural pauses</span>
+
+                <span className="setting-description">
+                  Add extra time after punctuation and long words.
+                </span>
+              </div>
+
+              <button
+                className={
+                  useNaturalPauses
+                    ? "timing-toggle active"
+                    : "timing-toggle"
+                }
+                type="button"
+                onClick={() =>
+                  setUseNaturalPauses(
+                    (currentValue) => !currentValue,
+                  )
+                }
+                aria-pressed={useNaturalPauses}
+              >
+                <span className="timing-toggle-track">
+                  <span className="timing-toggle-knob" />
+                </span>
+
+                {useNaturalPauses ? "On" : "Off"}
+              </button>
             </div>
           </div>
 
           <div className="progress-section">
             <div className="progress-information">
               <span>
-                Approximately {estimatedMinutes} min at{" "}
-                {wordsPerMinute} WPM
+                Approximately {estimatedMinutes} min remaining
               </span>
 
               <span>{Math.round(progress)}%</span>

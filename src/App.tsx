@@ -54,22 +54,18 @@ import type {
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "./auth/AuthContext";
 import { AuthPage } from "./components/AuthPage";
-import { InstallAppButton } from "./components/InstallAppButton";
 import { ReaderPage } from "./components/reader/ReaderPage";
+import { HomePage } from "./pages/HomePage";
+import { LibraryPage } from "./pages/LibraryPage";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import type {
+  CloudConnectionStatus,
+  CloudSyncState,
+  LibraryMode,
+  LibrarySort,
+} from "./types/app";
 
 import "./App.css";
-
-type LibrarySort = "recent" | "title" | "progress";
-type LibraryMode = "local" | "cloud";
-type CloudSyncState =
-  | "idle"
-  | "loading"
-  | "offline"
-  | "pending"
-  | "syncing"
-  | "synced"
-  | "error";
 
 function documentLibrariesMatch(
   firstLibrary: SavedDocument[],
@@ -275,7 +271,7 @@ function App() {
           ? "Sync pending"
           : "Online";
 
-  const cloudConnectionStatus = !isOnline
+  const cloudConnectionStatus: CloudConnectionStatus = !isOnline
     ? "offline"
     : cloudSyncState === "syncing"
       ? "syncing"
@@ -1521,649 +1517,81 @@ function App() {
 
   if (screen === "home" && isLibraryPage) {
     return (
-      <div className="landing-shell library-page-shell">
-        <header className="site-header">
-          <button
-            className="brand brand-button"
-            type="button"
-            onClick={() => navigate("/")}
-            aria-label="RSVP Reader home"
-          >
-            <span className="brand-mark" />
-            RSVP Reader
-          </button>
-
-          <div className="header-actions">
-            <button
-              className="library-nav-button active"
-              type="button"
-              onClick={() => navigate("/")}
-            >
-              Home
-            </button>
-
-            {user && cloudConnectionLabel && (
-              <span
-                className={`cloud-connection-badge ${cloudConnectionStatus}`}
-                title={
-                  isOnline
-                    ? "Your cloud library will synchronize automatically."
-                    : "Changes are saved on this device and will synchronize when the connection returns."
-                }
-              >
-                <span className="cloud-connection-dot" />
-                {cloudConnectionLabel}
-              </span>
-            )}
-
-            <InstallAppButton />
-
-            <button
-              className="sign-in-button account-button"
-              type="button"
-              onClick={openAccount}
-              title={user?.email || "Sign in or create an account"}
-            >
-              <span>{accountLabel}</span>
-            </button>
-          </div>
-        </header>
-
-        <main className="library-page-main">
-          <section className="library-page-intro">
-            <span className="eyebrow">
-              {user ? "Synced to your account" : "Saved on this device"}
-            </span>
-            <h1>Your {user ? "cloud" : "local"} library</h1>
-            <p>
-              {user
-                ? "Your documents and progress are available whenever you sign in on another device."
-                : "Continue saved texts, search your collection and manage reading progress without signing in."}
-            </p>
-          </section>
-
-          {user &&
-            (!isOnline ||
-              cloudSyncState === "pending" ||
-              cloudSyncState === "error") && (
-              <div className="offline-sync-banner" role="status">
-                <div>
-                  <span className="offline-sync-kicker">
-                    {!isOnline ? "Offline mode" : "Synchronization pending"}
-                  </span>
-                  <strong>
-                    {!isOnline
-                      ? "Your cloud library is available on this device."
-                      : "Your changes are safe and waiting to sync."}
-                  </strong>
-                  <p>
-                    {!isOnline
-                      ? "You can keep reading, create documents, rename them and update progress. Everything will synchronize automatically when the connection returns."
-                      : "The application will retry automatically. You can continue reading while it waits for Supabase to become available."}
-                  </p>
-                </div>
-
-                {isOnline && (
-                  <button
-                    type="button"
-                    onClick={() => void synchronizeCurrentCloudLibrary()}
-                    disabled={cloudSyncState === "syncing"}
-                  >
-                    {cloudSyncState === "syncing" ? "Syncing…" : "Retry sync"}
-                  </button>
-                )}
-              </div>
-            )}
-
-          <section
-            ref={librarySectionRef}
-            id="local-library"
-            className="library-section library-section-standalone"
-            aria-labelledby="library-heading"
-          >
-            <div className="library-header">
-              <div>
-                <span className="eyebrow">{libraryStorageLabel}</span>
-                <h2 id="library-heading">Saved texts</h2>
-              </div>
-
-              <span className="library-count">
-                {savedDocuments.length}{" "}
-                {savedDocuments.length === 1
-                  ? "document"
-                  : "documents"}
-              </span>
-            </div>
-
-            {user && showMigrationPrompt && (
-              <div className="migration-banner">
-                <div>
-                  <span className="migration-kicker">Local library found</span>
-                  <strong>Import your saved local texts to this account?</strong>
-                  <p>
-                    This copies {localMigrationDocuments.length}{" "}
-                    {localMigrationDocuments.length === 1
-                      ? "document"
-                      : "documents"} to your cloud library. Your local backup is kept on this device.
-                  </p>
-                </div>
-
-                <div className="migration-actions">
-                  <button
-                    className="migration-primary-button"
-                    type="button"
-                    onClick={() => void importLocalLibraryToCloud()}
-                    disabled={isMigratingLibrary}
-                  >
-                    {isMigratingLibrary ? "Importing…" : "Import local library"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={dismissMigrationPrompt}
-                    disabled={isMigratingLibrary}
-                  >
-                    Not now
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {isLibraryLoading ? (
-              <div className="library-loading-state">
-                <span className="library-loading-spinner" aria-hidden="true" />
-                <strong>Loading your cloud library…</strong>
-              </div>
-            ) : savedDocuments.length > 0 && (
-              <div className="library-toolbar">
-                <label className="library-search-field">
-                  <span>Search</span>
-                  <input
-                    type="search"
-                    value={libraryQuery}
-                    onChange={(event) =>
-                      setLibraryQuery(event.target.value)
-                    }
-                    placeholder="Search saved texts"
-                  />
-                </label>
-
-                <label className="library-sort-field">
-                  <span>Sort by</span>
-                  <select
-                    value={librarySort}
-                    onChange={(event) =>
-                      setLibrarySort(event.target.value as LibrarySort)
-                    }
-                  >
-                    <option value="recent">Recently updated</option>
-                    <option value="title">Title</option>
-                    <option value="progress">Reading progress</option>
-                  </select>
-                </label>
-
-                <span className="library-results-count">
-                  {visibleDocuments.length} shown
-                </span>
-              </div>
-            )}
-
-            {libraryError && (
-              <p className="library-error" role="alert">
-                {libraryError}
-              </p>
-            )}
-
-            {!isLibraryLoading && (
-              savedDocuments.length === 0 ? (
-              <div className="empty-library">
-                <strong>Your {user ? "cloud" : "local"} library is empty.</strong>
-                <span>
-                  Return home to paste a text or upload a PDF.
-                </span>
-                <button type="button" onClick={() => navigate("/")}>
-                  Add your first text
-                </button>
-              </div>
-            ) : visibleDocuments.length === 0 ? (
-              <div className="empty-library search-empty-state">
-                <strong>No saved text matches your search.</strong>
-                <span>Try a different title or clear the search field.</span>
-                <button
-                  type="button"
-                  onClick={() => setLibraryQuery("")}
-                >
-                  Clear search
-                </button>
-              </div>
-            ) : (
-              <div className="document-grid">
-                {visibleDocuments.map((savedDocument) => {
-                  const exactDocumentProgress =
-                    savedDocument.wordCount <= 1
-                      ? 0
-                      : (savedDocument.currentWordIndex /
-                          (savedDocument.wordCount - 1)) *
-                        100;
-
-                  const progressLabel =
-                    exactDocumentProgress > 0 &&
-                    exactDocumentProgress < 1
-                      ? "<1"
-                      : Math.round(exactDocumentProgress).toString();
-
-                  return (
-                    <article
-                      className="saved-document-card"
-                      key={savedDocument.id}
-                    >
-                      <div className="saved-document-main">
-                        <span className="saved-document-date">
-                          Updated{" "}
-                          {new Date(
-                            savedDocument.updatedAt,
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </span>
-
-                        {renamingDocumentId === savedDocument.id ? (
-                          <div className="rename-document-form">
-                            <input
-                              autoFocus
-                              type="text"
-                              value={renameValue}
-                              onChange={(event) =>
-                                setRenameValue(event.target.value)
-                              }
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") {
-                                  saveRenamedDocument(savedDocument);
-                                }
-
-                                if (event.key === "Escape") {
-                                  cancelRenamingDocument();
-                                }
-                              }}
-                              maxLength={120}
-                              aria-label={`Rename ${savedDocument.title}`}
-                            />
-
-                            <div className="rename-document-actions">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  saveRenamedDocument(savedDocument)
-                                }
-                                disabled={!renameValue.trim()}
-                              >
-                                Save
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={cancelRenamingDocument}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <h3>{savedDocument.title}</h3>
-                        )}
-
-                        <p>
-                          Word{" "}
-                          {Math.min(
-                            savedDocument.currentWordIndex + 1,
-                            savedDocument.wordCount,
-                          ).toLocaleString("en-US")}{" "}
-                          of{" "}
-                          {savedDocument.wordCount.toLocaleString(
-                            "en-US",
-                          )}{" "}
-                          · {progressLabel}% complete
-                        </p>
-                      </div>
-
-                      <div className="saved-document-progress">
-                        <span
-                          style={{
-                            width: `${exactDocumentProgress}%`,
-                          }}
-                        />
-                      </div>
-
-                      <div className="saved-document-actions">
-                        <button
-                          className="continue-document-button"
-                          type="button"
-                          onClick={() =>
-                            continueSavedDocument(savedDocument)
-                          }
-                        >
-                          {savedDocument.currentWordIndex > 0
-                            ? "Continue"
-                            : "Start"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            restartSavedDocument(savedDocument)
-                          }
-                        >
-                          Restart
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startRenamingDocument(savedDocument)
-                          }
-                        >
-                          Rename
-                        </button>
-
-                        <button
-                          className="delete-document-button"
-                          type="button"
-                          onClick={() =>
-                            deleteSavedDocument(savedDocument)
-                          }
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            ))}
-          </section>
-        </main>
-      </div>
+      <LibraryPage
+        userEmail={user?.email}
+        accountLabel={accountLabel}
+        cloudConnectionLabel={cloudConnectionLabel}
+        cloudConnectionStatus={cloudConnectionStatus}
+        isOnline={isOnline}
+        cloudSyncState={cloudSyncState}
+        libraryStorageLabel={libraryStorageLabel}
+        savedDocuments={savedDocuments}
+        visibleDocuments={visibleDocuments}
+        librarySectionRef={librarySectionRef}
+        showMigrationPrompt={showMigrationPrompt}
+        localMigrationDocumentCount={localMigrationDocuments.length}
+        isMigratingLibrary={isMigratingLibrary}
+        isLibraryLoading={isLibraryLoading}
+        libraryQuery={libraryQuery}
+        librarySort={librarySort}
+        libraryError={libraryError}
+        renamingDocumentId={renamingDocumentId}
+        renameValue={renameValue}
+        onNavigateHome={() => navigate("/")}
+        onOpenLibrary={openLibrary}
+        onOpenAccount={openAccount}
+        onRetrySync={() => void synchronizeCurrentCloudLibrary()}
+        onImportLocalLibrary={() => void importLocalLibraryToCloud()}
+        onDismissMigration={dismissMigrationPrompt}
+        onLibraryQueryChange={setLibraryQuery}
+        onLibrarySortChange={setLibrarySort}
+        onContinueDocument={continueSavedDocument}
+        onRestartDocument={restartSavedDocument}
+        onStartRename={startRenamingDocument}
+        onRenameValueChange={setRenameValue}
+        onSaveRename={saveRenamedDocument}
+        onCancelRename={cancelRenamingDocument}
+        onDeleteDocument={deleteSavedDocument}
+      />
     );
   }
 
   if (screen === "home") {
     return (
-      <div className="landing-shell">
-        <header className="site-header">
-          <button
-            className="brand brand-button"
-            type="button"
-            onClick={() => navigate("/")}
-            aria-label="RSVP Reader home"
-          >
-            <span className="brand-mark" />
-            RSVP Reader
-          </button>
-
-          <div className="header-actions">
-            <button
-              className="library-nav-button"
-              type="button"
-              onClick={openLibrary}
-              aria-controls="local-library"
-            >
-              Library
-              <span className="library-nav-count">
-                {savedDocuments.length}
-              </span>
-            </button>
-
-            {user && cloudConnectionLabel && (
-              <span
-                className={`cloud-connection-badge ${cloudConnectionStatus}`}
-                title={
-                  isOnline
-                    ? "Your cloud library will synchronize automatically."
-                    : "Changes are saved on this device and will synchronize when the connection returns."
-                }
-              >
-                <span className="cloud-connection-dot" />
-                {cloudConnectionLabel}
-              </span>
-            )}
-
-            <InstallAppButton />
-
-            <button
-              className="sign-in-button account-button"
-              type="button"
-              onClick={openAccount}
-              title={user?.email || "Sign in or create an account"}
-            >
-              <span>{accountLabel}</span>
-            </button>
-          </div>
-        </header>
-
-        <main className="landing-main">
-          <section className="hero-section">
-            <div className="hero-copy">
-              <span className="eyebrow">
-                Read without losing focus
-              </span>
-
-              <h1>
-                Your text.
-                <br />
-                One word at a time.
-              </h1>
-
-              <p className="hero-description">
-                Transform books, articles and documents into a focused
-                speed-reading experience using Rapid Serial Visual
-                Presentation.
-              </p>
-
-              <div className="hero-features">
-                <span>250–2,000 WPM</span>
-                <span>Keyboard controls</span>
-                <span>{user ? "Cloud-synced library" : "Local reading library"}</span>
-              </div>
-
-              <button
-                className="demo-button"
-                type="button"
-                onClick={startDemo}
-              >
-                Try the demonstration
-                <span aria-hidden="true">→</span>
-              </button>
-
-              {latestDocument && (
-                <section
-                  className="continue-reading-card"
-                  aria-label="Continue your latest reading"
-                >
-                  <div className="continue-reading-heading">
-                    <div>
-                      <span className="continue-reading-label">
-                        Continue reading
-                      </span>
-
-                      <h2>{latestDocument.title}</h2>
-                    </div>
-
-                    <span className="continue-reading-percentage">
-                      {latestDocumentProgressLabel}%
-                    </span>
-                  </div>
-
-                  <p>
-                    Word{" "}
-                    {Math.min(
-                      latestDocument.currentWordIndex + 1,
-                      latestDocument.wordCount,
-                    ).toLocaleString("en-US")}{" "}
-                    of{" "}
-                    {latestDocument.wordCount.toLocaleString(
-                      "en-US",
-                    )}
-                  </p>
-
-                  <div
-                    className="continue-reading-progress"
-                    aria-hidden="true"
-                  >
-                    <span
-                      style={{
-                        width: `${latestDocumentProgress}%`,
-                      }}
-                    />
-                  </div>
-
-                  <div className="continue-reading-actions">
-                    <button
-                      className="continue-latest-button"
-                      type="button"
-                      onClick={() =>
-                        continueSavedDocument(latestDocument)
-                      }
-                    >
-                      Continue
-                      <span aria-hidden="true">→</span>
-                    </button>
-
-                    <button
-                      className="view-library-button"
-                      type="button"
-                      onClick={openLibrary}
-                    >
-                      View all saved texts
-                    </button>
-                  </div>
-                </section>
-              )}
-            </div>
-
-            <section className="text-entry-card">
-              <div className="entry-card-header">
-                <div>
-                  <span className="entry-step">New reading</span>
-                  <h2>Paste your text</h2>
-                </div>
-
-                <span className="word-count">
-                  {pastedWordCount.toLocaleString("en-US")} words
-                </span>
-              </div>
-
-              <label className="field-label" htmlFor="document-title">
-                Title
-              </label>
-
-              <input
-                id="document-title"
-                className="title-input"
-                type="text"
-                value={draftTitle}
-                onChange={(event) => {
-                  setDraftTitle(event.target.value);
-                  setFormError("");
-                }}
-                placeholder="Optional document title"
-                maxLength={120}
-              />
-
-              <label className="field-label" htmlFor="document-text">
-                Text
-              </label>
-
-              <textarea
-                id="document-text"
-                className="text-input"
-                value={draftText}
-                onChange={(event) => {
-                  setDraftText(event.target.value);
-                  setFormError("");
-                }}
-                placeholder="Paste a chapter, article or any other text here..."
-                spellCheck
-              />
-
-              {formError && (
-                <p className="form-error" role="alert">
-                  {formError}
-                </p>
-              )}
-
-              <button
-                className="start-reading-button"
-                type="button"
-                onClick={startPastedText}
-                disabled={pastedWordCount === 0}
-              >
-                Start reading
-                <span aria-hidden="true">→</span>
-              </button>
-
-              <input
-                ref={pdfInputRef}
-                className="visually-hidden"
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={handlePdfUpload}
-                disabled={isExtractingPdf}
-                aria-label="Upload a PDF document"
-              />
-
-              <button
-                className="pdf-upload-button"
-                type="button"
-                onClick={() => pdfInputRef.current?.click()}
-                disabled={isExtractingPdf}
-              >
-                <div className="pdf-upload-icon">PDF</div>
-
-                <div className="pdf-upload-copy">
-                  <strong>
-                    {isExtractingPdf
-                      ? "Extracting text..."
-                      : pdfFileName || "Upload a PDF"}
-                  </strong>
-
-                  <span>
-                    {isExtractingPdf
-                      ? `Reading document — ${pdfProgress}%`
-                      : pdfFileName
-                        ? `${pastedWordCount.toLocaleString(
-                            "en-US",
-                          )} words ready`
-                        : "Choose a text-based PDF up to 20 MB."}
-                  </span>
-
-                  {isExtractingPdf && (
-                    <div
-                      className="pdf-mini-progress"
-                      aria-hidden="true"
-                    >
-                      <span
-                        style={{
-                          width: `${pdfProgress}%`,
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <span className="upload-action">
-                  {isExtractingPdf
-                    ? `${pdfProgress}%`
-                    : pdfFileName
-                      ? "Replace"
-                      : "Choose file"}
-                </span>
-              </button>
-            </section>
-          </section>
-
-        </main>
-      </div>
+      <HomePage
+        userEmail={user?.email}
+        accountLabel={accountLabel}
+        cloudConnectionLabel={cloudConnectionLabel}
+        cloudConnectionStatus={cloudConnectionStatus}
+        isOnline={isOnline}
+        savedDocumentCount={savedDocuments.length}
+        latestDocument={latestDocument}
+        latestDocumentProgress={latestDocumentProgress}
+        latestDocumentProgressLabel={latestDocumentProgressLabel}
+        pastedWordCount={pastedWordCount}
+        draftTitle={draftTitle}
+        draftText={draftText}
+        formError={formError}
+        pdfFileName={pdfFileName}
+        isExtractingPdf={isExtractingPdf}
+        pdfProgress={pdfProgress}
+        pdfInputRef={pdfInputRef}
+        onNavigateHome={() => navigate("/")}
+        onOpenLibrary={openLibrary}
+        onOpenAccount={openAccount}
+        onStartDemo={startDemo}
+        onContinueDocument={continueSavedDocument}
+        onDraftTitleChange={(value) => {
+          setDraftTitle(value);
+          setFormError("");
+        }}
+        onDraftTextChange={(value) => {
+          setDraftText(value);
+          setFormError("");
+        }}
+        onStartReading={startPastedText}
+        onPdfUpload={handlePdfUpload}
+      />
     );
   }
 

@@ -15,6 +15,8 @@ const documents: SavedDocument[] = [
     wordsPerMinute: 400,
     fontSize: 72,
     useNaturalPauses: false,
+    archivedAt: null,
+    trashedAt: null,
     createdAt: "2026-07-10T00:00:00.000Z",
     updatedAt: "2026-07-11T00:00:00.000Z",
   },
@@ -27,20 +29,38 @@ const documents: SavedDocument[] = [
     wordsPerMinute: 500,
     fontSize: 80,
     useNaturalPauses: true,
+    archivedAt: null,
+    trashedAt: null,
     createdAt: "2026-07-12T00:00:00.000Z",
     updatedAt: "2026-07-14T00:00:00.000Z",
   },
   {
-    id: "middle",
-    title: "Blue Essay",
-    text: "one two three four five",
-    wordCount: 5,
+    id: "archived",
+    title: "Archived Essay",
+    text: "one two three",
+    wordCount: 3,
     currentWordIndex: 0,
     wordsPerMinute: 350,
     fontSize: 64,
     useNaturalPauses: false,
+    archivedAt: "2026-07-13T00:00:00.000Z",
+    trashedAt: null,
     createdAt: "2026-07-11T00:00:00.000Z",
     updatedAt: "2026-07-13T00:00:00.000Z",
+  },
+  {
+    id: "trashed",
+    title: "Deleted Draft",
+    text: "one two",
+    wordCount: 2,
+    currentWordIndex: 0,
+    wordsPerMinute: 400,
+    fontSize: 72,
+    useNaturalPauses: false,
+    archivedAt: null,
+    trashedAt: "2026-07-12T00:00:00.000Z",
+    createdAt: "2026-07-09T00:00:00.000Z",
+    updatedAt: "2026-07-12T00:00:00.000Z",
   },
 ];
 
@@ -63,104 +83,115 @@ function useTestLibraryView(activeDocumentId: string | null = null) {
 }
 
 describe("useLibraryView", () => {
-  it("selects the latest document and calculates its progress", () => {
+  it("uses only active documents for the latest reading card", () => {
     const { result } = renderHook(() => useTestLibraryView());
 
     expect(result.current.latestDocument?.id).toBe("latest");
     expect(result.current.latestDocumentProgress).toBe(75);
-    expect(result.current.latestDocumentProgressLabel).toBe("75");
+    expect(result.current.activeDocumentCount).toBe(2);
+    expect(result.current.archivedDocumentCount).toBe(1);
+    expect(result.current.trashedDocumentCount).toBe(1);
   });
 
-  it("filters by title and supports each sorting mode", () => {
+  it("filters and sorts the selected section", () => {
     const { result } = renderHook(() => useTestLibraryView());
 
     expect(result.current.visibleDocuments.map(({ id }) => id)).toEqual([
       "latest",
-      "middle",
       "older",
     ]);
 
-    act(() => {
-      result.current.setLibrarySort("title");
-    });
-
-    expect(result.current.visibleDocuments.map(({ id }) => id)).toEqual([
-      "latest",
-      "middle",
-      "older",
-    ]);
-
-    act(() => {
-      result.current.setLibrarySort("progress");
-    });
-
+    act(() => result.current.setLibrarySort("title"));
     expect(result.current.visibleDocuments.map(({ id }) => id)).toEqual([
       "latest",
       "older",
-      "middle",
     ]);
 
-    act(() => {
-      result.current.setLibraryQuery("blue");
-    });
-
+    act(() => result.current.setLibraryQuery("zebra"));
     expect(result.current.visibleDocuments.map(({ id }) => id)).toEqual([
-      "middle",
+      "older",
+    ]);
+
+    act(() => result.current.setLibrarySection("archived"));
+    expect(result.current.libraryQuery).toBe("");
+    expect(result.current.visibleDocuments.map(({ id }) => id)).toEqual([
+      "archived",
     ]);
   });
 
-  it("renames a document and updates the active reader title", () => {
+  it("edits title and text while keeping progress within bounds", () => {
     const { result } = renderHook(() =>
       useTestLibraryView("latest"),
     );
 
+    act(() => result.current.startEditingDocument(documents[1]));
     act(() => {
-      result.current.startRenamingDocument(documents[1]);
+      result.current.setEditTitle("  Calm Reading  ");
+      result.current.setEditText("first second");
+    });
+    act(() => {
+      expect(result.current.saveEditedDocument()).toBe(true);
     });
 
-    expect(result.current.renamingDocumentId).toBe("latest");
-    expect(result.current.renameValue).toBe("Alpha Book");
+    const editedDocument = result.current.savedDocuments.find(
+      (document) => document.id === "latest",
+    );
 
-    act(() => {
-      result.current.setRenameValue("  Calm Reading  ");
+    expect(editedDocument).toMatchObject({
+      title: "Calm Reading",
+      text: "first second",
+      wordCount: 2,
+      currentWordIndex: 1,
     });
-
-    act(() => {
-      result.current.saveRenamedDocument(documents[1]);
-    });
-
-    expect(
-      result.current.savedDocuments.find(
-        (document) => document.id === "latest",
-      )?.title,
-    ).toBe("Calm Reading");
     expect(result.current.renameActiveDocument).toHaveBeenCalledWith(
       "Calm Reading",
     );
-    expect(result.current.renamingDocumentId).toBeNull();
-    expect(result.current.renameValue).toBe("");
+    expect(result.current.editingDocumentId).toBeNull();
   });
 
-  it("cancels renaming and ignores an empty title", () => {
+  it("rejects empty edited content", () => {
     const { result } = renderHook(() => useTestLibraryView());
 
+    act(() => result.current.startEditingDocument(documents[0]));
+    act(() => result.current.setEditText("   "));
     act(() => {
-      result.current.startRenamingDocument(documents[0]);
-      result.current.setRenameValue("   ");
+      expect(result.current.saveEditedDocument()).toBe(false);
     });
 
-    act(() => {
-      result.current.saveRenamedDocument(documents[0]);
-    });
+    expect(result.current.editError).toMatch(/at least one word/i);
+    expect(result.current.editingDocumentId).toBe("older");
+  });
 
-    expect(result.current.savedDocuments[0].title).toBe("Zebra Notes");
-    expect(result.current.renamingDocumentId).toBe("older");
+  it("archives, trashes and restores documents", () => {
+    const { result } = renderHook(() => useTestLibraryView());
 
-    act(() => {
-      result.current.cancelRenamingDocument();
-    });
+    act(() => result.current.archiveDocument(documents[0]));
+    expect(
+      result.current.savedDocuments.find(({ id }) => id === "older")
+        ?.archivedAt,
+    ).toBeTruthy();
 
-    expect(result.current.renamingDocumentId).toBeNull();
-    expect(result.current.renameValue).toBe("");
+    const archivedDocument = result.current.savedDocuments.find(
+      ({ id }) => id === "older",
+    )!;
+
+    act(() => result.current.moveDocumentToTrash(archivedDocument));
+    expect(
+      result.current.savedDocuments.find(({ id }) => id === "older")
+        ?.trashedAt,
+    ).toBeTruthy();
+    expect(
+      result.current.savedDocuments.find(({ id }) => id === "older")
+        ?.archivedAt,
+    ).toBeNull();
+
+    const trashedDocument = result.current.savedDocuments.find(
+      ({ id }) => id === "older",
+    )!;
+
+    act(() => result.current.restoreTrashedDocument(trashedDocument));
+    expect(
+      result.current.savedDocuments.find(({ id }) => id === "older"),
+    ).toMatchObject({ archivedAt: null, trashedAt: null });
   });
 });

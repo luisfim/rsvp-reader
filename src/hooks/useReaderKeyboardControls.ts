@@ -11,6 +11,7 @@ interface UseReaderKeyboardControlsOptions {
   onIncreaseSpeed: () => void;
   onDecreaseSpeed: () => void;
   onToggleFocusMode: () => void | Promise<void>;
+  onOpenHelp: () => void;
   onExitFocusMode: () => void | Promise<void>;
   onSeekToWord: (index: number) => void;
   onExitReader: () => void;
@@ -49,6 +50,7 @@ export function useReaderKeyboardControls({
   onIncreaseSpeed,
   onDecreaseSpeed,
   onToggleFocusMode,
+  onOpenHelp,
   onExitFocusMode,
   onSeekToWord,
   onExitReader,
@@ -77,6 +79,7 @@ export function useReaderKeyboardControls({
         "KeyW",
         "KeyS",
         "KeyF",
+        "Slash",
         "Home",
         "End",
         "Escape",
@@ -122,6 +125,12 @@ export function useReaderKeyboardControls({
           }
           break;
 
+        case "Slash":
+          if (event.key === "?" && !event.repeat) {
+            onOpenHelp();
+          }
+          break;
+
         case "Home":
           onSeekToWord(0);
           break;
@@ -153,6 +162,7 @@ export function useReaderKeyboardControls({
     onExitReader,
     onIncreaseSpeed,
     onNextWord,
+    onOpenHelp,
     onPreviousWord,
     onRevealControls,
     onSeekToWord,

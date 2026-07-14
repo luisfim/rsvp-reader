@@ -71,13 +71,19 @@ export function documentLibrariesMatch(
     return (
       matchingDocument?.updatedAt === document.updatedAt &&
       matchingDocument.title === document.title &&
+      matchingDocument.text === document.text &&
+      matchingDocument.wordCount === document.wordCount &&
       matchingDocument.currentWordIndex ===
         document.currentWordIndex &&
       matchingDocument.wordsPerMinute ===
         document.wordsPerMinute &&
       matchingDocument.fontSize === document.fontSize &&
       matchingDocument.useNaturalPauses ===
-        document.useNaturalPauses
+        document.useNaturalPauses &&
+      (matchingDocument.archivedAt ?? null) ===
+        (document.archivedAt ?? null) &&
+      (matchingDocument.trashedAt ?? null) ===
+        (document.trashedAt ?? null)
     );
   });
 }

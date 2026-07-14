@@ -118,17 +118,30 @@ function App() {
     setLibraryQuery,
     librarySort,
     setLibrarySort,
-    renamingDocumentId,
-    renameValue,
-    setRenameValue,
+    librarySection,
+    setLibrarySection,
     librarySectionRef,
     latestDocument,
     visibleDocuments,
+    activeDocumentCount,
+    archivedDocumentCount,
+    trashedDocumentCount,
+    currentSectionDocumentCount,
     latestDocumentProgress,
     latestDocumentProgressLabel,
-    startRenamingDocument,
-    cancelRenamingDocument,
-    saveRenamedDocument,
+    editingDocumentId,
+    editTitle,
+    setEditTitle,
+    editText,
+    setEditText,
+    editError,
+    startEditingDocument,
+    cancelEditingDocument,
+    saveEditedDocument,
+    archiveDocument,
+    unarchiveDocument,
+    moveDocumentToTrash,
+    restoreTrashedDocument,
   } = useLibraryView({
     savedDocuments,
     setSavedDocuments,
@@ -309,9 +322,21 @@ function App() {
     });
   };
 
-  const deleteSavedDocument = async (savedDocument: SavedDocument) => {
+  const moveSavedDocumentToTrash = (savedDocument: SavedDocument) => {
+    const shouldMove = window.confirm(
+      `Move "${savedDocument.title}" to trash?`,
+    );
+
+    if (shouldMove) {
+      moveDocumentToTrash(savedDocument);
+    }
+  };
+
+  const permanentlyDeleteSavedDocument = async (
+    savedDocument: SavedDocument,
+  ) => {
     const shouldDelete = window.confirm(
-      `Delete "${savedDocument.title}" from your library?`,
+      `Delete "${savedDocument.title}" forever? This cannot be undone.`,
     );
 
     if (!shouldDelete) {
@@ -449,7 +474,11 @@ function App() {
         isOnline={isOnline}
         cloudSyncState={cloudSyncState}
         libraryStorageLabel={libraryStorageLabel}
-        savedDocuments={savedDocuments}
+        savedDocumentCount={activeDocumentCount}
+        activeDocumentCount={activeDocumentCount}
+        archivedDocumentCount={archivedDocumentCount}
+        trashedDocumentCount={trashedDocumentCount}
+        currentSectionDocumentCount={currentSectionDocumentCount}
         visibleDocuments={visibleDocuments}
         librarySectionRef={librarySectionRef}
         showMigrationPrompt={showMigrationPrompt}
@@ -458,9 +487,12 @@ function App() {
         isLibraryLoading={isLibraryLoading}
         libraryQuery={libraryQuery}
         librarySort={librarySort}
+        librarySection={librarySection}
         libraryError={libraryError}
-        renamingDocumentId={renamingDocumentId}
-        renameValue={renameValue}
+        editingDocumentId={editingDocumentId}
+        editTitle={editTitle}
+        editText={editText}
+        editError={editError}
         onNavigateHome={navigateHome}
         onOpenLibrary={openLibrary}
         onOpenAccount={openAccount}
@@ -470,13 +502,19 @@ function App() {
         onDismissMigration={dismissMigrationPrompt}
         onLibraryQueryChange={setLibraryQuery}
         onLibrarySortChange={setLibrarySort}
+        onLibrarySectionChange={setLibrarySection}
         onContinueDocument={continueSavedDocument}
         onRestartDocument={restartSavedDocument}
-        onStartRename={startRenamingDocument}
-        onRenameValueChange={setRenameValue}
-        onSaveRename={saveRenamedDocument}
-        onCancelRename={cancelRenamingDocument}
-        onDeleteDocument={deleteSavedDocument}
+        onStartEdit={startEditingDocument}
+        onEditTitleChange={setEditTitle}
+        onEditTextChange={setEditText}
+        onSaveEdit={() => void saveEditedDocument()}
+        onCancelEdit={cancelEditingDocument}
+        onArchiveDocument={archiveDocument}
+        onUnarchiveDocument={unarchiveDocument}
+        onMoveToTrash={moveSavedDocumentToTrash}
+        onRestoreDocument={restoreTrashedDocument}
+        onDeleteForever={permanentlyDeleteSavedDocument}
       />
       <HelpDialog
         isOpen={isHelpOpen}
@@ -497,7 +535,7 @@ function App() {
         cloudConnectionLabel={cloudConnectionLabel}
         cloudConnectionStatus={cloudConnectionStatus}
         isOnline={isOnline}
-        savedDocumentCount={savedDocuments.length}
+        savedDocumentCount={activeDocumentCount}
         latestDocument={latestDocument}
         latestDocumentProgress={latestDocumentProgress}
         latestDocumentProgressLabel={latestDocumentProgressLabel}

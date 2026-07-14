@@ -12,6 +12,7 @@ interface AppHeaderProps {
   onNavigateHome: () => void;
   onOpenLibrary: () => void;
   onOpenAccount: () => void;
+  onOpenHelp: () => void;
 }
 
 export function AppHeader({
@@ -25,6 +26,7 @@ export function AppHeader({
   onNavigateHome,
   onOpenLibrary,
   onOpenAccount,
+  onOpenHelp,
 }: AppHeaderProps) {
   return (
     <header className="site-header">
@@ -80,6 +82,17 @@ export function AppHeader({
         )}
 
         <InstallAppButton />
+
+        <button
+          className="header-help-button"
+          type="button"
+          onClick={onOpenHelp}
+          aria-label="Open help and keyboard shortcuts"
+          title="Help and keyboard shortcuts"
+        >
+          <span aria-hidden="true">?</span>
+          <span className="header-help-label">Help</span>
+        </button>
 
         <button
           className="sign-in-button account-button"

@@ -8,7 +8,8 @@ import {
 } from "react";
 
 import type { SavedDocument } from "../lib/library";
-import type { LibrarySort } from "../types/app";
+import { tokenizeText } from "../lib/reader";
+import type { LibrarySection, LibrarySort } from "../types/app";
 
 interface UseLibraryViewOptions {
   savedDocuments: SavedDocument[];
@@ -25,14 +26,32 @@ function getDocumentProgress(document: SavedDocument): number {
   return document.currentWordIndex / (document.wordCount - 1);
 }
 
+export function getDocumentSection(
+  document: SavedDocument,
+): LibrarySection {
+  if (document.trashedAt) {
+    return "trash";
+  }
+
+  if (document.archivedAt) {
+    return "archived";
+  }
+
+  return "active";
+}
+
 function getLatestDocument(
   savedDocuments: SavedDocument[],
 ): SavedDocument | null {
-  if (savedDocuments.length === 0) {
+  const activeDocuments = savedDocuments.filter(
+    (document) => getDocumentSection(document) === "active",
+  );
+
+  if (activeDocuments.length === 0) {
     return null;
   }
 
-  return savedDocuments.reduce((latest, document) =>
+  return activeDocuments.reduce((latest, document) =>
     new Date(document.updatedAt).getTime() >
     new Date(latest.updatedAt).getTime()
       ? document
@@ -49,28 +68,55 @@ export function useLibraryView({
   const [libraryQuery, setLibraryQuery] = useState("");
   const [librarySort, setLibrarySort] =
     useState<LibrarySort>("recent");
-  const [renamingDocumentId, setRenamingDocumentId] = useState<
+  const [librarySection, setLibrarySection] =
+    useState<LibrarySection>("active");
+
+  const [editingDocumentId, setEditingDocumentId] = useState<
     string | null
   >(null);
-  const [renameValue, setRenameValue] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editText, setEditText] = useState("");
+  const [editError, setEditError] = useState("");
 
   const librarySectionRef = useRef<HTMLElement | null>(null);
+
+  const documentsBySection = useMemo(() => {
+    const active: SavedDocument[] = [];
+    const archived: SavedDocument[] = [];
+    const trash: SavedDocument[] = [];
+
+    for (const document of savedDocuments) {
+      const section = getDocumentSection(document);
+
+      if (section === "trash") {
+        trash.push(document);
+      } else if (section === "archived") {
+        archived.push(document);
+      } else {
+        active.push(document);
+      }
+    }
+
+    return { active, archived, trash };
+  }, [savedDocuments]);
 
   const latestDocument = useMemo(
     () => getLatestDocument(savedDocuments),
     [savedDocuments],
   );
 
+  const sectionDocuments = documentsBySection[librarySection];
+
   const visibleDocuments = useMemo(() => {
     const normalizedQuery = libraryQuery.trim().toLocaleLowerCase();
 
     const filteredDocuments = normalizedQuery
-      ? savedDocuments.filter((document) =>
-          document.title
+      ? sectionDocuments.filter((document) =>
+          `${document.title} ${document.text}`
             .toLocaleLowerCase()
             .includes(normalizedQuery),
         )
-      : [...savedDocuments];
+      : [...sectionDocuments];
 
     return filteredDocuments.sort((firstDocument, secondDocument) => {
       if (librarySort === "title") {
@@ -93,7 +139,7 @@ export function useLibraryView({
         new Date(firstDocument.updatedAt).getTime()
       );
     });
-  }, [libraryQuery, librarySort, savedDocuments]);
+  }, [libraryQuery, librarySort, sectionDocuments]);
 
   const latestDocumentProgress = latestDocument
     ? getDocumentProgress(latestDocument) * 100
@@ -104,27 +150,92 @@ export function useLibraryView({
       ? "<1"
       : Math.round(latestDocumentProgress).toString();
 
-  const startRenamingDocument = useCallback(
+  const setSection = useCallback((section: LibrarySection) => {
+    setLibrarySection(section);
+    setLibraryQuery("");
+  }, []);
+
+  const closeEditor = useCallback(() => {
+    setEditingDocumentId(null);
+    setEditTitle("");
+    setEditText("");
+    setEditError("");
+  }, []);
+
+  const startEditingDocument = useCallback(
     (savedDocument: SavedDocument) => {
-      setRenamingDocumentId(savedDocument.id);
-      setRenameValue(savedDocument.title);
+      setEditingDocumentId(savedDocument.id);
+      setEditTitle(savedDocument.title);
+      setEditText(savedDocument.text);
+      setEditError("");
     },
     [],
   );
 
-  const cancelRenamingDocument = useCallback(() => {
-    setRenamingDocumentId(null);
-    setRenameValue("");
-  }, []);
+  const saveEditedDocument = useCallback((): boolean => {
+    if (!editingDocumentId) {
+      return false;
+    }
 
-  const saveRenamedDocument = useCallback(
-    (savedDocument: SavedDocument) => {
-      const nextTitle = renameValue.trim();
+    const nextTitle = editTitle.trim();
+    const nextText = editText.trim();
+    const nextWords = tokenizeText(nextText);
 
-      if (!nextTitle) {
-        return;
-      }
+    if (!nextTitle) {
+      setEditError("Add a title before saving.");
+      return false;
+    }
 
+    if (nextWords.length === 0) {
+      setEditError("The document must contain at least one word.");
+      return false;
+    }
+
+    const updatedAt = new Date().toISOString();
+
+    setSavedDocuments((currentDocuments) =>
+      currentDocuments.map((document) => {
+        if (document.id !== editingDocumentId) {
+          return document;
+        }
+
+        const nextIndex = Math.min(
+          document.currentWordIndex,
+          Math.max(nextWords.length - 1, 0),
+        );
+
+        return {
+          ...document,
+          title: nextTitle,
+          text: nextText,
+          wordCount: nextWords.length,
+          currentWordIndex: nextIndex,
+          updatedAt,
+        };
+      }),
+    );
+
+    if (activeDocumentId === editingDocumentId) {
+      renameActiveDocument(nextTitle);
+    }
+
+    closeEditor();
+    return true;
+  }, [
+    activeDocumentId,
+    closeEditor,
+    editText,
+    editTitle,
+    editingDocumentId,
+    renameActiveDocument,
+    setSavedDocuments,
+  ]);
+
+  const updateDocumentStatus = useCallback(
+    (
+      savedDocument: SavedDocument,
+      status: Pick<SavedDocument, "archivedAt" | "trashedAt">,
+    ) => {
       const updatedAt = new Date().toISOString();
 
       setSavedDocuments((currentDocuments) =>
@@ -132,26 +243,58 @@ export function useLibraryView({
           document.id === savedDocument.id
             ? {
                 ...document,
-                title: nextTitle,
+                ...status,
                 updatedAt,
               }
             : document,
         ),
       );
 
-      if (activeDocumentId === savedDocument.id) {
-        renameActiveDocument(nextTitle);
+      if (editingDocumentId === savedDocument.id) {
+        closeEditor();
       }
-
-      setRenamingDocumentId(null);
-      setRenameValue("");
     },
-    [
-      activeDocumentId,
-      renameActiveDocument,
-      renameValue,
-      setSavedDocuments,
-    ],
+    [closeEditor, editingDocumentId, setSavedDocuments],
+  );
+
+  const archiveDocument = useCallback(
+    (savedDocument: SavedDocument) => {
+      updateDocumentStatus(savedDocument, {
+        archivedAt: new Date().toISOString(),
+        trashedAt: null,
+      });
+    },
+    [updateDocumentStatus],
+  );
+
+  const unarchiveDocument = useCallback(
+    (savedDocument: SavedDocument) => {
+      updateDocumentStatus(savedDocument, {
+        archivedAt: null,
+        trashedAt: null,
+      });
+    },
+    [updateDocumentStatus],
+  );
+
+  const moveDocumentToTrash = useCallback(
+    (savedDocument: SavedDocument) => {
+      updateDocumentStatus(savedDocument, {
+        archivedAt: null,
+        trashedAt: new Date().toISOString(),
+      });
+    },
+    [updateDocumentStatus],
+  );
+
+  const restoreTrashedDocument = useCallback(
+    (savedDocument: SavedDocument) => {
+      updateDocumentStatus(savedDocument, {
+        archivedAt: null,
+        trashedAt: null,
+      });
+    },
+    [updateDocumentStatus],
   );
 
   return {
@@ -159,16 +302,29 @@ export function useLibraryView({
     setLibraryQuery,
     librarySort,
     setLibrarySort,
-    renamingDocumentId,
-    renameValue,
-    setRenameValue,
+    librarySection,
+    setLibrarySection: setSection,
     librarySectionRef,
     latestDocument,
     visibleDocuments,
+    activeDocumentCount: documentsBySection.active.length,
+    archivedDocumentCount: documentsBySection.archived.length,
+    trashedDocumentCount: documentsBySection.trash.length,
+    currentSectionDocumentCount: sectionDocuments.length,
     latestDocumentProgress,
     latestDocumentProgressLabel,
-    startRenamingDocument,
-    cancelRenamingDocument,
-    saveRenamedDocument,
+    editingDocumentId,
+    editTitle,
+    setEditTitle,
+    editText,
+    setEditText,
+    editError,
+    startEditingDocument,
+    cancelEditingDocument: closeEditor,
+    saveEditedDocument,
+    archiveDocument,
+    unarchiveDocument,
+    moveDocumentToTrash,
+    restoreTrashedDocument,
   };
 }

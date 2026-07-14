@@ -28,6 +28,7 @@ interface HomePageProps {
   onNavigateHome: () => void;
   onOpenLibrary: () => void;
   onOpenAccount: () => void;
+  onOpenHelp: () => void;
   onStartDemo: () => void;
   onContinueDocument: (document: SavedDocument) => void;
   onDraftTitleChange: (value: string) => void;
@@ -57,6 +58,7 @@ export function HomePage({
   onNavigateHome,
   onOpenLibrary,
   onOpenAccount,
+  onOpenHelp,
   onStartDemo,
   onContinueDocument,
   onDraftTitleChange,
@@ -77,6 +79,7 @@ export function HomePage({
         onNavigateHome={onNavigateHome}
         onOpenLibrary={onOpenLibrary}
         onOpenAccount={onOpenAccount}
+        onOpenHelp={onOpenHelp}
       />
 
       <main className="landing-main">

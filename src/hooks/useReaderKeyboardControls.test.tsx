@@ -15,6 +15,7 @@ function createControls(overrides: Record<string, unknown> = {}) {
     onIncreaseSpeed: vi.fn(),
     onDecreaseSpeed: vi.fn(),
     onToggleFocusMode: vi.fn(),
+    onOpenHelp: vi.fn(),
     onExitFocusMode: vi.fn(),
     onSeekToWord: vi.fn(),
     onExitReader: vi.fn(),
@@ -66,6 +67,15 @@ describe("useReaderKeyboardControls", () => {
 
     expect(controls.onSeekToWord).toHaveBeenNthCalledWith(1, 0);
     expect(controls.onSeekToWord).toHaveBeenNthCalledWith(2, 41);
+  });
+
+  it("opens help with the question-mark shortcut", () => {
+    const controls = createControls();
+
+    renderHook(() => useReaderKeyboardControls(controls));
+    fireEvent.keyDown(window, { code: "Slash", key: "?", shiftKey: true });
+
+    expect(controls.onOpenHelp).toHaveBeenCalledTimes(1);
   });
 
   it("does not capture keys while the user is typing", () => {

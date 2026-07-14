@@ -15,6 +15,8 @@ interface CloudDocumentRow {
   words_per_minute: number;
   font_size: number;
   use_natural_pauses: boolean;
+  archived_at: string | null;
+  trashed_at: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -72,6 +74,8 @@ function toSavedDocument(row: CloudDocumentRow): SavedDocument {
     wordsPerMinute: row.words_per_minute,
     fontSize: row.font_size,
     useNaturalPauses: row.use_natural_pauses,
+    archivedAt: row.archived_at,
+    trashedAt: row.trashed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -92,6 +96,8 @@ function toCloudRow(
     words_per_minute: document.wordsPerMinute,
     font_size: document.fontSize,
     use_natural_pauses: document.useNaturalPauses,
+    archived_at: document.archivedAt ?? null,
+    trashed_at: document.trashedAt ?? null,
     created_at: document.createdAt,
     updated_at: deletedAt ?? document.updatedAt,
     deleted_at: deletedAt,
@@ -106,7 +112,7 @@ async function loadCloudDocumentRecords(
   const { data, error } = await client
     .from("documents")
     .select(
-      "id,user_id,title,content,word_count,current_word_index,words_per_minute,font_size,use_natural_pauses,created_at,updated_at,deleted_at",
+      "id,user_id,title,content,word_count,current_word_index,words_per_minute,font_size,use_natural_pauses,archived_at,trashed_at,created_at,updated_at,deleted_at",
     )
     .eq("user_id", userId);
 

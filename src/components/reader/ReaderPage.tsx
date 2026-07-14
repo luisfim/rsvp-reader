@@ -26,6 +26,7 @@ interface ReaderPageProps {
   onReturnHome: () => void;
   onReturnToLibrary: () => void;
   onToggleFocusMode: () => void | Promise<void>;
+  onOpenHelp: () => void;
   onPreviousWord: () => void;
   onTogglePlayback: () => void;
   onNextWord: () => void;
@@ -56,6 +57,7 @@ export function ReaderPage({
   onReturnHome,
   onReturnToLibrary,
   onToggleFocusMode,
+  onOpenHelp,
   onPreviousWord,
   onTogglePlayback,
   onNextWord,
@@ -116,6 +118,16 @@ export function ReaderPage({
         </button>
 
         <div className="reader-header-actions">
+          <button
+            className="reader-help-button"
+            type="button"
+            onClick={onOpenHelp}
+            title="Help and keyboard shortcuts"
+          >
+            Help
+            <kbd>?</kbd>
+          </button>
+
           <button
             className="reader-focus-button"
             type="button"

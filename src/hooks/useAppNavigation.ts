@@ -199,7 +199,8 @@ export function useAppNavigation({
     }
 
     const savedDocument = savedDocuments.find(
-      (document) => document.id === routeDocumentId,
+      (document) =>
+        document.id === routeDocumentId && !document.trashedAt,
     );
 
     if (!savedDocument) {

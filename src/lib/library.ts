@@ -9,6 +9,8 @@ export interface SavedDocument {
   wordsPerMinute: number;
   fontSize: number;
   useNaturalPauses: boolean;
+  archivedAt?: string | null;
+  trashedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -92,6 +94,14 @@ function parseStoredDocument(value: unknown): SavedDocument | null {
       typeof storedDocument.useNaturalPauses === "boolean"
         ? storedDocument.useNaturalPauses
         : false,
+    archivedAt:
+      typeof storedDocument.archivedAt === "string"
+        ? storedDocument.archivedAt
+        : null,
+    trashedAt:
+      typeof storedDocument.trashedAt === "string"
+        ? storedDocument.trashedAt
+        : null,
     createdAt:
       typeof storedDocument.createdAt === "string"
         ? storedDocument.createdAt
@@ -117,6 +127,8 @@ export function createSavedDocument(
     wordsPerMinute: input.wordsPerMinute,
     fontSize: input.fontSize,
     useNaturalPauses: input.useNaturalPauses,
+    archivedAt: null,
+    trashedAt: null,
     createdAt: currentDate,
     updatedAt: currentDate,
   };

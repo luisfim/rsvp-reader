@@ -155,6 +155,7 @@ function App() {
   const [libraryError, setLibraryError] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
+  const librarySectionRef = useRef<HTMLElement | null>(null);
   const documentLayerRef = useRef<HTMLDivElement | null>(null);
   const activeBackgroundWordRef = useRef<HTMLSpanElement | null>(null);
   const lastBackgroundLineTopRef = useRef<number | null>(null);
@@ -174,6 +175,32 @@ function App() {
     () => tokenizeText(draftText).length,
     [draftText],
   );
+
+  const latestDocument = useMemo(() => {
+    if (savedDocuments.length === 0) {
+      return null;
+    }
+
+    return savedDocuments.reduce((latest, document) =>
+      new Date(document.updatedAt).getTime() >
+      new Date(latest.updatedAt).getTime()
+        ? document
+        : latest,
+    );
+  }, [savedDocuments]);
+
+  const latestDocumentProgress = latestDocument
+    ? latestDocument.wordCount <= 1
+      ? 0
+      : (latestDocument.currentWordIndex /
+          (latestDocument.wordCount - 1)) *
+        100
+    : 0;
+
+  const latestDocumentProgressLabel =
+    latestDocumentProgress > 0 && latestDocumentProgress < 1
+      ? "<1"
+      : Math.round(latestDocumentProgress).toString();
 
   const currentWord = words[currentWordIndex] ?? "";
   const focusLetterIndex = getFocusLetterIndex(currentWord);
@@ -300,6 +327,13 @@ function App() {
   const startDemo = () => {
     openReader("RSVP demonstration", DEMO_TEXT);
   };
+
+  const scrollToLibrary = useCallback(() => {
+    librarySectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
 
   const handlePdfUpload = async (
     event: ChangeEvent<HTMLInputElement>,
@@ -792,13 +826,27 @@ function App() {
             RSVP Reader
           </button>
 
-          <button
-            className="sign-in-button"
-            type="button"
-            title="Account support will be added later"
-          >
-            Sign in
-          </button>
+          <div className="header-actions">
+            <button
+              className="library-nav-button"
+              type="button"
+              onClick={scrollToLibrary}
+              aria-controls="local-library"
+            >
+              Library
+              <span className="library-nav-count">
+                {savedDocuments.length}
+              </span>
+            </button>
+
+            <button
+              className="sign-in-button"
+              type="button"
+              title="Account support will be added later"
+            >
+              Sign in
+            </button>
+          </div>
         </header>
 
         <main className="landing-main">
@@ -834,6 +882,71 @@ function App() {
                 Try the demonstration
                 <span aria-hidden="true">→</span>
               </button>
+
+              {latestDocument && (
+                <section
+                  className="continue-reading-card"
+                  aria-label="Continue your latest reading"
+                >
+                  <div className="continue-reading-heading">
+                    <div>
+                      <span className="continue-reading-label">
+                        Continue reading
+                      </span>
+
+                      <h2>{latestDocument.title}</h2>
+                    </div>
+
+                    <span className="continue-reading-percentage">
+                      {latestDocumentProgressLabel}%
+                    </span>
+                  </div>
+
+                  <p>
+                    Word{" "}
+                    {Math.min(
+                      latestDocument.currentWordIndex + 1,
+                      latestDocument.wordCount,
+                    ).toLocaleString("en-US")}{" "}
+                    of{" "}
+                    {latestDocument.wordCount.toLocaleString(
+                      "en-US",
+                    )}
+                  </p>
+
+                  <div
+                    className="continue-reading-progress"
+                    aria-hidden="true"
+                  >
+                    <span
+                      style={{
+                        width: `${latestDocumentProgress}%`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="continue-reading-actions">
+                    <button
+                      className="continue-latest-button"
+                      type="button"
+                      onClick={() =>
+                        continueSavedDocument(latestDocument)
+                      }
+                    >
+                      Continue
+                      <span aria-hidden="true">→</span>
+                    </button>
+
+                    <button
+                      className="view-library-button"
+                      type="button"
+                      onClick={scrollToLibrary}
+                    >
+                      View all saved texts
+                    </button>
+                  </div>
+                </section>
+              )}
             </div>
 
             <section className="text-entry-card">
@@ -958,16 +1071,18 @@ function App() {
           </section>
 
           <section
+            ref={librarySectionRef}
+            id="local-library"
             className="library-section"
             aria-labelledby="library-heading"
           >
             <div className="library-header">
               <div>
                 <span className="eyebrow">
-                  Stored on this device
+                  Saved locally on this device
                 </span>
 
-                <h2 id="library-heading">Your library</h2>
+                <h2 id="library-heading">Local library</h2>
               </div>
 
               <span className="library-count">
@@ -986,7 +1101,7 @@ function App() {
 
             {savedDocuments.length === 0 ? (
               <div className="empty-library">
-                <strong>Your library is empty.</strong>
+                <strong>Your local library is empty.</strong>
                 <span>
                   Paste a text or upload a PDF to save your first reading.
                 </span>

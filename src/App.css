@@ -44,6 +44,7 @@
 }
 
 .brand,
+.header-actions,
 .sign-in-button,
 .reader-exit-button {
   pointer-events: auto;
@@ -105,6 +106,52 @@
   display: flex;
   align-items: center;
   gap: 9px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.library-nav-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 8px 10px 8px 14px;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.76);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.library-nav-button:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.library-nav-count {
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  padding: 0 6px;
+  background: rgba(255, 74, 74, 0.14);
+  color: #ff6868;
+  font-size: 10px;
 }
 
 .landing-main {
@@ -193,6 +240,135 @@
 
 .demo-button:hover span {
   transform: translateX(5px);
+}
+
+
+.continue-reading-card {
+  width: min(520px, 100%);
+  margin-top: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 18px;
+  padding: 18px;
+  background:
+    radial-gradient(
+      circle at 90% 10%,
+      rgba(255, 74, 74, 0.1),
+      transparent 38%
+    ),
+    rgba(255, 255, 255, 0.035);
+  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(16px);
+  animation: card-entry 700ms 180ms ease both;
+}
+
+.continue-reading-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.continue-reading-label {
+  color: #ff5757;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.continue-reading-card h2 {
+  overflow: hidden;
+  margin: 7px 0 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 18px;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continue-reading-card p {
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+}
+
+.continue-reading-percentage {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.continue-reading-progress {
+  height: 4px;
+  overflow: hidden;
+  margin-top: 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.continue-reading-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #ff3b3b;
+  box-shadow: 0 0 14px rgba(255, 59, 59, 0.38);
+}
+
+.continue-reading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.continue-latest-button,
+.view-library-button {
+  min-height: 38px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.continue-latest-button {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid #ffffff;
+  padding: 0 16px;
+  background: #ffffff;
+  color: #050505;
+}
+
+.continue-latest-button:hover {
+  background: #e9e9e9;
+  transform: translateY(-1px);
+}
+
+.continue-latest-button span {
+  font-size: 16px;
+}
+
+.view-library-button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.view-library-button:hover {
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
 }
 
 .text-entry-card {
@@ -423,6 +599,7 @@
 .library-section {
   width: min(1240px, 100%);
   margin: 90px auto 30px;
+  scroll-margin-top: 100px;
 }
 
 .library-header {
@@ -1080,6 +1257,20 @@ kbd {
     font-size: 49px;
   }
 
+  .header-actions {
+    gap: 7px;
+  }
+
+  .library-nav-button,
+  .sign-in-button {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .continue-reading-card {
+    margin-top: 27px;
+  }
+
   .entry-card-header {
     align-items: flex-start;
     flex-direction: column;
@@ -1160,6 +1351,37 @@ kbd {
 }
 
 @media (max-width: 480px) {
+  .site-header {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .brand {
+    font-size: 13px;
+  }
+
+  .library-nav-button {
+    padding-right: 7px;
+    padding-left: 10px;
+    font-size: 11px;
+  }
+
+  .sign-in-button {
+    padding-right: 11px;
+    padding-left: 11px;
+    font-size: 11px;
+  }
+
+  .continue-reading-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .continue-latest-button,
+  .view-library-button {
+    width: 100%;
+  }
+
   .upload-action {
     display: none;
   }

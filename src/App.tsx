@@ -11,11 +11,12 @@ import {
 
 import { type SavedDocument } from "./lib/library";
 
-import type { ReaderOptions, Screen } from "./types/reader";
+import type { Screen } from "./types/reader";
 
 import { useLocation } from "react-router";
 import { useAuth } from "./auth/AuthContext";
 import { AuthPage } from "./components/AuthPage";
+import { HelpDialog } from "./components/HelpDialog";
 import { ReaderPage } from "./components/reader/ReaderPage";
 import { HomePage } from "./pages/HomePage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -30,6 +31,7 @@ import {
 } from "./hooks/useAppNavigation";
 import { useRsvpPlayer } from "./hooks/useRsvpPlayer";
 import { useLibraryView } from "./hooks/useLibraryView";
+import { useOnboarding } from "./hooks/useOnboarding";
 import type { CloudConnectionStatus } from "./types/app";
 
 import "./App.css";
@@ -39,6 +41,7 @@ function App() {
   const screen: Screen = getScreenFromPath(location.pathname);
   const { user, isLoading: isAuthLoading } = useAuth();
   const isOnline = useOnlineStatus();
+  const { isHelpOpen, openHelp, closeHelp } = useOnboarding();
 
   const {
     savedDocuments,
@@ -331,8 +334,22 @@ function App() {
     revealReaderControls();
   }, [restartPlayerReading, revealReaderControls]);
 
+  const openHelpPanel = useCallback(() => {
+    if (screen === "reader") {
+      pauseReader();
+      revealReaderControls();
+    }
+
+    openHelp();
+  }, [openHelp, pauseReader, revealReaderControls, screen]);
+
+  const startDemoFromHelp = useCallback(() => {
+    closeHelp();
+    startDemo();
+  }, [closeHelp]);
+
   useReaderKeyboardControls({
-    enabled: screen === "reader",
+    enabled: screen === "reader" && !isHelpOpen,
     wordCount: words.length,
     isFocusMode,
     onRevealControls: revealReaderControls,
@@ -342,6 +359,7 @@ function App() {
     onIncreaseSpeed: increaseSpeed,
     onDecreaseSpeed: decreaseSpeed,
     onToggleFocusMode: toggleFocusMode,
+    onOpenHelp: openHelpPanel,
     onExitFocusMode: exitFocusMode,
     onSeekToWord: seekToWord,
     onExitReader: returnHome,
@@ -422,6 +440,7 @@ function App() {
 
   if (screen === "home" && isLibraryPage) {
     return (
+      <>
       <LibraryPage
         userEmail={user?.email}
         accountLabel={accountLabel}
@@ -445,6 +464,7 @@ function App() {
         onNavigateHome={navigateHome}
         onOpenLibrary={openLibrary}
         onOpenAccount={openAccount}
+        onOpenHelp={openHelpPanel}
         onRetrySync={() => void synchronizeCurrentCloudLibrary()}
         onImportLocalLibrary={() => void importLocalLibraryToCloud()}
         onDismissMigration={dismissMigrationPrompt}
@@ -458,11 +478,19 @@ function App() {
         onCancelRename={cancelRenamingDocument}
         onDeleteDocument={deleteSavedDocument}
       />
+      <HelpDialog
+        isOpen={isHelpOpen}
+        isAuthenticated={Boolean(user)}
+        onClose={closeHelp}
+        onStartDemo={startDemoFromHelp}
+      />
+      </>
     );
   }
 
   if (screen === "home") {
     return (
+      <>
       <HomePage
         userEmail={user?.email}
         accountLabel={accountLabel}
@@ -484,6 +512,7 @@ function App() {
         onNavigateHome={navigateHome}
         onOpenLibrary={openLibrary}
         onOpenAccount={openAccount}
+        onOpenHelp={openHelpPanel}
         onStartDemo={startDemo}
         onContinueDocument={continueSavedDocument}
         onDraftTitleChange={updateDraftTitle}
@@ -491,10 +520,18 @@ function App() {
         onStartReading={startPastedText}
         onPdfUpload={handlePdfUpload}
       />
+      <HelpDialog
+        isOpen={isHelpOpen}
+        isAuthenticated={Boolean(user)}
+        onClose={closeHelp}
+        onStartDemo={startDemoFromHelp}
+      />
+      </>
     );
   }
 
   return (
+    <>
     <ReaderPage
       readerShellRef={readerShellRef}
       documentLayerRef={documentLayerRef}
@@ -513,6 +550,7 @@ function App() {
       onReturnHome={returnHome}
       onReturnToLibrary={returnToLibrary}
       onToggleFocusMode={toggleFocusMode}
+      onOpenHelp={openHelpPanel}
       onPreviousWord={previousWord}
       onTogglePlayback={togglePlayback}
       onNextWord={nextWord}
@@ -524,6 +562,13 @@ function App() {
       onSeekToWord={seekToWord}
       onRestartReading={restartCurrentReading}
     />
+    <HelpDialog
+      isOpen={isHelpOpen}
+      isAuthenticated={Boolean(user)}
+      onClose={closeHelp}
+      onStartDemo={startDemoFromHelp}
+    />
+    </>
   );
 }
 

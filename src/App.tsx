@@ -42,6 +42,8 @@ import type {
 } from "./types/reader";
 
 import { useLocation, useNavigate } from "react-router";
+import { useAuth } from "./auth/AuthContext";
+import { AuthPage } from "./components/AuthPage";
 
 import "./App.css";
 
@@ -50,6 +52,7 @@ type LibrarySort = "recent" | "title" | "progress";
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, isLoading: isAuthLoading } = useAuth();
 
   const [screen, setScreen] = useState<Screen>(() =>
     location.pathname.startsWith("/reader/") ? "reader" : "home",
@@ -196,6 +199,10 @@ function App() {
       ? Math.max(1, Math.ceil(remainingWords / wordsPerMinute))
       : 0;
 
+  const accountLabel = isAuthLoading
+    ? "Loading…"
+    : user?.email || "Sign in";
+
   useEffect(() => {
     readerSnapshotRef.current = {
       activeDocumentId,
@@ -320,6 +327,11 @@ function App() {
 
   const openLibrary = useCallback(() => {
     navigate("/library");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [navigate]);
+
+  const openAccount = useCallback(() => {
+    navigate("/auth");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [navigate]);
 
@@ -896,7 +908,12 @@ function App() {
     togglePlayback,
   ]);
 
+  const isAuthPage = location.pathname.startsWith("/auth");
   const isLibraryPage = location.pathname === "/library";
+
+  if (screen === "home" && isAuthPage) {
+    return <AuthPage />;
+  }
 
   if (screen === "home" && isLibraryPage) {
     return (
@@ -922,11 +939,12 @@ function App() {
             </button>
 
             <button
-              className="sign-in-button"
+              className="sign-in-button account-button"
               type="button"
-              title="Account support will be added later"
+              onClick={openAccount}
+              title={user?.email || "Sign in or create an account"}
             >
-              Sign in
+              <span>{accountLabel}</span>
             </button>
           </div>
         </header>
@@ -1202,11 +1220,12 @@ function App() {
             </button>
 
             <button
-              className="sign-in-button"
+              className="sign-in-button account-button"
               type="button"
-              title="Account support will be added later"
+              onClick={openAccount}
+              title={user?.email || "Sign in or create an account"}
             >
-              Sign in
+              <span>{accountLabel}</span>
             </button>
           </div>
         </header>

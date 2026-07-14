@@ -1,9 +1,18 @@
 @import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap");
 
 :root {
+  --color-bg: #0b1112;
+  --color-bg-elevated: #0f1718;
+  --color-text: #e7eeec;
+  --color-accent: #78cbbb;
+  --color-accent-strong: #91d8ca;
+  --color-accent-rgb: 120, 203, 187;
+  --color-warning: #ddb879;
+  --color-warning-rgb: 221, 184, 121;
+
   font-family: "Open Sans", Arial, sans-serif;
-  color: #f5f5f5;
-  background: #030303;
+  color: var(--color-text);
+  background: var(--color-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -17,14 +26,14 @@
 html {
   min-width: 320px;
   min-height: 100%;
-  background: #030303;
+  background: var(--color-bg);
 }
 
 body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background: #030303;
+  background: var(--color-bg);
 }
 
 button,
@@ -37,12 +46,13 @@ select {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid #ff3b3b;
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-accent);
   outline-offset: 3px;
 }
 
 ::selection {
-  background: rgba(255, 59, 59, 0.35);
+  background: rgba(var(--color-accent-rgb), 0.3);
   color: #ffffff;
 }

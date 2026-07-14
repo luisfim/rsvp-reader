@@ -43,6 +43,8 @@ import type {
 
 import "./App.css";
 
+type LibrarySort = "recent" | "title" | "progress";
+
 function App() {
   const [screen, setScreen] = useState<Screen>("home");
 
@@ -73,6 +75,12 @@ function App() {
 
   const [libraryError, setLibraryError] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [libraryQuery, setLibraryQuery] = useState("");
+  const [librarySort, setLibrarySort] = useState<LibrarySort>("recent");
+  const [renamingDocumentId, setRenamingDocumentId] = useState<
+    string | null
+  >(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const librarySectionRef = useRef<HTMLElement | null>(null);
   const documentLayerRef = useRef<HTMLDivElement | null>(null);
@@ -107,6 +115,45 @@ function App() {
         : latest,
     );
   }, [savedDocuments]);
+
+  const visibleDocuments = useMemo(() => {
+    const normalizedQuery = libraryQuery.trim().toLocaleLowerCase();
+
+    const filteredDocuments = normalizedQuery
+      ? savedDocuments.filter((document) =>
+          document.title.toLocaleLowerCase().includes(normalizedQuery),
+        )
+      : [...savedDocuments];
+
+    return filteredDocuments.sort((firstDocument, secondDocument) => {
+      if (librarySort === "title") {
+        return firstDocument.title.localeCompare(secondDocument.title, "en", {
+          sensitivity: "base",
+        });
+      }
+
+      if (librarySort === "progress") {
+        const firstProgress =
+          firstDocument.wordCount <= 1
+            ? 0
+            : firstDocument.currentWordIndex /
+              (firstDocument.wordCount - 1);
+
+        const secondProgress =
+          secondDocument.wordCount <= 1
+            ? 0
+            : secondDocument.currentWordIndex /
+              (secondDocument.wordCount - 1);
+
+        return secondProgress - firstProgress;
+      }
+
+      return (
+        new Date(secondDocument.updatedAt).getTime() -
+        new Date(firstDocument.updatedAt).getTime()
+      );
+    });
+  }, [libraryQuery, librarySort, savedDocuments]);
 
   const latestDocumentProgress = latestDocument
     ? latestDocument.wordCount <= 1
@@ -376,6 +423,45 @@ function App() {
         (document) => document.id !== savedDocument.id,
       ),
     );
+  };
+
+  const startRenamingDocument = (savedDocument: SavedDocument) => {
+    setRenamingDocumentId(savedDocument.id);
+    setRenameValue(savedDocument.title);
+  };
+
+  const cancelRenamingDocument = () => {
+    setRenamingDocumentId(null);
+    setRenameValue("");
+  };
+
+  const saveRenamedDocument = (savedDocument: SavedDocument) => {
+    const nextTitle = renameValue.trim();
+
+    if (!nextTitle) {
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+
+    setSavedDocuments((currentDocuments) =>
+      currentDocuments.map((document) =>
+        document.id === savedDocument.id
+          ? {
+              ...document,
+              title: nextTitle,
+              updatedAt,
+            }
+          : document,
+      ),
+    );
+
+    if (activeDocumentId === savedDocument.id) {
+      setDocumentTitle(nextTitle);
+    }
+
+    setRenamingDocumentId(null);
+    setRenameValue("");
   };
 
   const saveActiveProgress = useCallback(() => {
@@ -1012,6 +1098,40 @@ function App() {
               </span>
             </div>
 
+            {savedDocuments.length > 0 && (
+              <div className="library-toolbar">
+                <label className="library-search-field">
+                  <span>Search</span>
+                  <input
+                    type="search"
+                    value={libraryQuery}
+                    onChange={(event) =>
+                      setLibraryQuery(event.target.value)
+                    }
+                    placeholder="Search saved texts"
+                  />
+                </label>
+
+                <label className="library-sort-field">
+                  <span>Sort by</span>
+                  <select
+                    value={librarySort}
+                    onChange={(event) =>
+                      setLibrarySort(event.target.value as LibrarySort)
+                    }
+                  >
+                    <option value="recent">Recently updated</option>
+                    <option value="title">Title</option>
+                    <option value="progress">Reading progress</option>
+                  </select>
+                </label>
+
+                <span className="library-results-count">
+                  {visibleDocuments.length} shown
+                </span>
+              </div>
+            )}
+
             {libraryError && (
               <p className="library-error" role="alert">
                 {libraryError}
@@ -1025,9 +1145,20 @@ function App() {
                   Paste a text or upload a PDF to save your first reading.
                 </span>
               </div>
+            ) : visibleDocuments.length === 0 ? (
+              <div className="empty-library search-empty-state">
+                <strong>No saved text matches your search.</strong>
+                <span>Try a different title or clear the search field.</span>
+                <button
+                  type="button"
+                  onClick={() => setLibraryQuery("")}
+                >
+                  Clear search
+                </button>
+              </div>
             ) : (
               <div className="document-grid">
-                {savedDocuments.map((savedDocument) => {
+                {visibleDocuments.map((savedDocument) => {
                   const exactDocumentProgress =
                     savedDocument.wordCount <= 1
                       ? 0
@@ -1058,7 +1189,50 @@ function App() {
                           })}
                         </span>
 
-                        <h3>{savedDocument.title}</h3>
+                        {renamingDocumentId === savedDocument.id ? (
+                          <div className="rename-document-form">
+                            <input
+                              autoFocus
+                              type="text"
+                              value={renameValue}
+                              onChange={(event) =>
+                                setRenameValue(event.target.value)
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  saveRenamedDocument(savedDocument);
+                                }
+
+                                if (event.key === "Escape") {
+                                  cancelRenamingDocument();
+                                }
+                              }}
+                              maxLength={120}
+                              aria-label={`Rename ${savedDocument.title}`}
+                            />
+
+                            <div className="rename-document-actions">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  saveRenamedDocument(savedDocument)
+                                }
+                                disabled={!renameValue.trim()}
+                              >
+                                Save
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={cancelRenamingDocument}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <h3>{savedDocument.title}</h3>
+                        )}
 
                         <p>
                           Word{" "}
@@ -1102,6 +1276,15 @@ function App() {
                           }
                         >
                           Restart
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            startRenamingDocument(savedDocument)
+                          }
+                        >
+                          Rename
                         </button>
 
                         <button

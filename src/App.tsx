@@ -50,6 +50,7 @@ import type {
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "./auth/AuthContext";
 import { AuthPage } from "./components/AuthPage";
+import { InstallAppButton } from "./components/InstallAppButton";
 
 import "./App.css";
 
@@ -1321,6 +1322,8 @@ function App() {
               Home
             </button>
 
+            <InstallAppButton />
+
             <button
               className="sign-in-button account-button"
               type="button"
@@ -1643,6 +1646,8 @@ function App() {
                 {savedDocuments.length}
               </span>
             </button>
+
+            <InstallAppButton />
 
             <button
               className="sign-in-button account-button"

@@ -1,0 +1,32 @@
+{
+  "name": "RSVP Reader",
+  "short_name": "RSVP Reader",
+  "description": "A focused Rapid Serial Visual Presentation reader for text and PDF documents.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#1257a6",
+  "orientation": "any",
+  "categories": ["education", "productivity", "books"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

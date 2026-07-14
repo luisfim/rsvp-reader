@@ -2465,3 +2465,95 @@ kbd {
     transition: none;
   }
 }
+
+/* Installable web app */
+.install-app-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(var(--color-accent-rgb), 0.46);
+  border-radius: 999px;
+  padding: 0 15px;
+  background: rgba(var(--color-accent-rgb), 0.13);
+  color: var(--color-accent-strong);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.install-app-button:hover {
+  border-color: rgba(var(--color-accent-rgb), 0.75);
+  background: rgba(var(--color-accent-rgb), 0.23);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.install-instructions-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(1, 7, 16, 0.78);
+  backdrop-filter: blur(12px);
+}
+
+.install-instructions-dialog {
+  width: min(480px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 24px;
+  padding: 28px;
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(var(--color-accent-rgb), 0.2),
+      transparent 36%
+    ),
+    var(--color-bg-elevated);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, 0.55);
+}
+
+.install-instructions-dialog h2 {
+  margin: 10px 0 18px;
+  font-size: clamp(25px, 6vw, 36px);
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+
+.install-instructions-dialog ol {
+  margin: 0;
+  padding-left: 22px;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.install-dialog-close {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 24px;
+  border: 0;
+  border-radius: 13px;
+  background: #ffffff;
+  color: var(--color-bg);
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (max-width: 680px) {
+  .install-app-button {
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 10px;
+  }
+}

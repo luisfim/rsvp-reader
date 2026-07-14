@@ -1,9 +1,7 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
-  useState,
 } from "react";
 
 import {
@@ -31,10 +29,8 @@ import {
   useAppNavigation,
 } from "./hooks/useAppNavigation";
 import { useRsvpPlayer } from "./hooks/useRsvpPlayer";
-import type {
-  CloudConnectionStatus,
-  LibrarySort,
-} from "./types/app";
+import { useLibraryView } from "./hooks/useLibraryView";
+import type { CloudConnectionStatus } from "./types/app";
 
 import "./App.css";
 
@@ -66,14 +62,6 @@ function App() {
     userId: user?.id ?? null,
     isOnline,
   });
-  const [libraryQuery, setLibraryQuery] = useState("");
-  const [librarySort, setLibrarySort] = useState<LibrarySort>("recent");
-  const [renamingDocumentId, setRenamingDocumentId] = useState<
-    string | null
-  >(null);
-  const [renameValue, setRenameValue] = useState("");
-
-  const librarySectionRef = useRef<HTMLElement | null>(null);
   const documentLayerRef = useRef<HTMLDivElement | null>(null);
   const activeBackgroundWordRef = useRef<HTMLSpanElement | null>(null);
   const lastBackgroundLineTopRef = useRef<number | null>(null);
@@ -122,71 +110,29 @@ function App() {
     isPlaying,
   });
 
+  const {
+    libraryQuery,
+    setLibraryQuery,
+    librarySort,
+    setLibrarySort,
+    renamingDocumentId,
+    renameValue,
+    setRenameValue,
+    librarySectionRef,
+    latestDocument,
+    visibleDocuments,
+    latestDocumentProgress,
+    latestDocumentProgressLabel,
+    startRenamingDocument,
+    cancelRenamingDocument,
+    saveRenamedDocument,
+  } = useLibraryView({
+    savedDocuments,
+    setSavedDocuments,
+    activeDocumentId,
+    renameActiveDocument,
+  });
 
-  const latestDocument = useMemo(() => {
-    if (savedDocuments.length === 0) {
-      return null;
-    }
-
-    return savedDocuments.reduce((latest, document) =>
-      new Date(document.updatedAt).getTime() >
-      new Date(latest.updatedAt).getTime()
-        ? document
-        : latest,
-    );
-  }, [savedDocuments]);
-
-  const visibleDocuments = useMemo(() => {
-    const normalizedQuery = libraryQuery.trim().toLocaleLowerCase();
-
-    const filteredDocuments = normalizedQuery
-      ? savedDocuments.filter((document) =>
-          document.title.toLocaleLowerCase().includes(normalizedQuery),
-        )
-      : [...savedDocuments];
-
-    return filteredDocuments.sort((firstDocument, secondDocument) => {
-      if (librarySort === "title") {
-        return firstDocument.title.localeCompare(secondDocument.title, "en", {
-          sensitivity: "base",
-        });
-      }
-
-      if (librarySort === "progress") {
-        const firstProgress =
-          firstDocument.wordCount <= 1
-            ? 0
-            : firstDocument.currentWordIndex /
-              (firstDocument.wordCount - 1);
-
-        const secondProgress =
-          secondDocument.wordCount <= 1
-            ? 0
-            : secondDocument.currentWordIndex /
-              (secondDocument.wordCount - 1);
-
-        return secondProgress - firstProgress;
-      }
-
-      return (
-        new Date(secondDocument.updatedAt).getTime() -
-        new Date(firstDocument.updatedAt).getTime()
-      );
-    });
-  }, [libraryQuery, librarySort, savedDocuments]);
-
-  const latestDocumentProgress = latestDocument
-    ? latestDocument.wordCount <= 1
-      ? 0
-      : (latestDocument.currentWordIndex /
-          (latestDocument.wordCount - 1)) *
-        100
-    : 0;
-
-  const latestDocumentProgressLabel =
-    latestDocumentProgress > 0 && latestDocumentProgress < 1
-      ? "<1"
-      : Math.round(latestDocumentProgress).toString();
 
   const accountLabel = isAuthLoading
     ? "Loading…"
@@ -370,45 +316,6 @@ function App() {
     }
 
     await deleteDocument(savedDocument);
-  };
-
-  const startRenamingDocument = (savedDocument: SavedDocument) => {
-    setRenamingDocumentId(savedDocument.id);
-    setRenameValue(savedDocument.title);
-  };
-
-  const cancelRenamingDocument = () => {
-    setRenamingDocumentId(null);
-    setRenameValue("");
-  };
-
-  const saveRenamedDocument = (savedDocument: SavedDocument) => {
-    const nextTitle = renameValue.trim();
-
-    if (!nextTitle) {
-      return;
-    }
-
-    const updatedAt = new Date().toISOString();
-
-    setSavedDocuments((currentDocuments) =>
-      currentDocuments.map((document) =>
-        document.id === savedDocument.id
-          ? {
-              ...document,
-              title: nextTitle,
-              updatedAt,
-            }
-          : document,
-      ),
-    );
-
-    if (activeDocumentId === savedDocument.id) {
-      renameActiveDocument(nextTitle);
-    }
-
-    setRenamingDocumentId(null);
-    setRenameValue("");
   };
 
   const seekToWord = useCallback(

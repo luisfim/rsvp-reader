@@ -12,13 +12,7 @@ import {
   DEFAULT_FONT_SIZE,
   DEFAULT_WPM,
   DEMO_TEXT,
-  FONT_SIZE_STEP,
-  MAX_FONT_SIZE,
   MAX_PDF_FILE_SIZE,
-  MAX_WPM,
-  MIN_FONT_SIZE,
-  MIN_WPM,
-  WPM_STEP,
 } from "./config/reader";
 
 import {
@@ -40,16 +34,9 @@ import {
   type OfflineCloudState,
 } from "./lib/offlineCloudLibrary";
 import { extractTextFromPdf } from "./lib/pdf";
-import {
-  getWordDelay,
-  tokenizeText,
-} from "./lib/reader";
+import { tokenizeText } from "./lib/reader";
 
-import type {
-  ReaderOptions,
-  ReaderSnapshot,
-  Screen,
-} from "./types/reader";
+import type { ReaderOptions, Screen } from "./types/reader";
 
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "./auth/AuthContext";
@@ -58,6 +45,7 @@ import { ReaderPage } from "./components/reader/ReaderPage";
 import { HomePage } from "./pages/HomePage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import { useRsvpPlayer } from "./hooks/useRsvpPlayer";
 import type {
   CloudConnectionStatus,
   CloudSyncState,
@@ -122,24 +110,12 @@ function App() {
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(0);
 
-  const [documentTitle, setDocumentTitle] = useState("");
-  const [words, setWords] = useState<string[]>([]);
-
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [wordsPerMinute, setWordsPerMinute] = useState(DEFAULT_WPM);
-  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
-  const [useNaturalPauses, setUseNaturalPauses] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [areReaderControlsVisible, setAreReaderControlsVisible] =
     useState(true);
 
   const [savedDocuments, setSavedDocuments] = useState<SavedDocument[]>(
     () => loadSavedDocuments(),
-  );
-
-  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(
-    null,
   );
 
   const [libraryError, setLibraryError] = useState("");
@@ -175,13 +151,32 @@ function App() {
   const controlsHideTimerRef = useRef<number | null>(null);
   const savedDocumentsRef = useRef<SavedDocument[]>(savedDocuments);
 
-  const readerSnapshotRef = useRef<ReaderSnapshot>({
-    activeDocumentId: null,
-    currentWordIndex: 0,
-    wordsPerMinute: DEFAULT_WPM,
-    fontSize: DEFAULT_FONT_SIZE,
-    useNaturalPauses: false,
-  });
+  const {
+    documentTitle,
+    words,
+    currentWordIndex,
+    isPlaying,
+    wordsPerMinute,
+    fontSize,
+    useNaturalPauses,
+    activeDocumentId,
+    loadReaderState,
+    pause: pauseReader,
+    clearActiveDocument,
+    renameActiveDocument,
+    togglePlayback,
+    previousWord,
+    nextWord,
+    seekToWord: seekPlayerToWord,
+    restartReading: restartPlayerReading,
+    increaseSpeed,
+    decreaseSpeed,
+    increaseFontSize,
+    decreaseFontSize,
+    toggleNaturalPauses,
+    getSnapshot,
+  } = useRsvpPlayer({ isActive: screen === "reader" });
+
 
   const pastedWordCount = useMemo(
     () => tokenizeText(draftText).length,
@@ -295,21 +290,6 @@ function App() {
         : "Saving…"
     : "Demo not saved";
 
-  useEffect(() => {
-    readerSnapshotRef.current = {
-      activeDocumentId,
-      currentWordIndex,
-      wordsPerMinute,
-      fontSize,
-      useNaturalPauses,
-    };
-  }, [
-    activeDocumentId,
-    currentWordIndex,
-    fontSize,
-    useNaturalPauses,
-    wordsPerMinute,
-  ]);
 
   const synchronizeCurrentCloudLibrary = useCallback(
     async (stateOverride?: OfflineCloudState) => {
@@ -576,53 +556,24 @@ function App() {
     void synchronizeCurrentCloudLibrary();
   }, [isOnline, synchronizeCurrentCloudLibrary, user]);
 
-  const loadReaderState = useCallback(
-    (
-      title: string,
-      text: string,
-      options: ReaderOptions = {},
-    ) => {
-      const parsedWords = tokenizeText(text);
-
-      if (parsedWords.length === 0) {
-        setFormError("Paste some text before starting.");
-        return;
-      }
-
-      const requestedIndex = options.startIndex ?? 0;
-      const safeIndex = Math.min(
-        Math.max(requestedIndex, 0),
-        parsedWords.length - 1,
-      );
-
-      const savedWpm = options.savedWordsPerMinute ?? DEFAULT_WPM;
-
-      setWords(parsedWords);
-      setDocumentTitle(title.trim() || "Untitled text");
-      setCurrentWordIndex(safeIndex);
-      setWordsPerMinute(Math.min(Math.max(savedWpm, MIN_WPM), MAX_WPM));
-      setFontSize(options.savedFontSize ?? DEFAULT_FONT_SIZE);
-      setUseNaturalPauses(options.savedNaturalPauses ?? false);
-      setActiveDocumentId(options.documentId ?? null);
-      setIsPlaying(false);
-      setFormError("");
-      setScreen("reader");
-      setLastSavedAt(options.documentId ? Date.now() : null);
-
-      lastBackgroundLineTopRef.current = null;
-      lastAutoSaveAtRef.current = 0;
-    },
-    [],
-  );
-
-
   const openReader = useCallback(
     (
       title: string,
       text: string,
       options: ReaderOptions = {},
     ) => {
-      loadReaderState(title, text, options);
+      const result = loadReaderState(title, text, options);
+
+      if (!result.success) {
+        setFormError(result.error ?? "The text could not be opened.");
+        return;
+      }
+
+      setFormError("");
+      setScreen("reader");
+      setLastSavedAt(options.documentId ? Date.now() : null);
+      lastBackgroundLineTopRef.current = null;
+      lastAutoSaveAtRef.current = 0;
 
       const destination = options.documentId
         ? `/reader/${encodeURIComponent(options.documentId)}`
@@ -905,7 +856,7 @@ function App() {
     );
 
     if (activeDocumentId === savedDocument.id) {
-      setDocumentTitle(nextTitle);
+      renameActiveDocument(nextTitle);
     }
 
     setRenamingDocumentId(null);
@@ -944,7 +895,7 @@ function App() {
   ]);
 
   const persistCurrentSnapshot = useCallback(() => {
-    const snapshot = readerSnapshotRef.current;
+    const snapshot = getSnapshot();
 
     if (!snapshot.activeDocumentId) {
       return;
@@ -991,37 +942,49 @@ function App() {
     } catch {
       // A pagehide event has no reliable place to display an error.
     }
-  }, [isOnline, synchronizeCurrentCloudLibrary, user]);
+  }, [getSnapshot, isOnline, synchronizeCurrentCloudLibrary, user]);
 
   const returnHome = useCallback(() => {
     saveActiveProgress();
     persistCurrentSnapshot();
-    setIsPlaying(false);
+    pauseReader();
     setIsFocusMode(false);
 
     if (document.fullscreenElement) {
       void document.exitFullscreen().catch(() => undefined);
     }
 
-    setActiveDocumentId(null);
+    clearActiveDocument();
     setScreen("home");
     navigate("/");
-  }, [navigate, persistCurrentSnapshot, saveActiveProgress]);
+  }, [
+    clearActiveDocument,
+    navigate,
+    pauseReader,
+    persistCurrentSnapshot,
+    saveActiveProgress,
+  ]);
 
   const returnToLibrary = useCallback(() => {
     saveActiveProgress();
     persistCurrentSnapshot();
-    setIsPlaying(false);
+    pauseReader();
     setIsFocusMode(false);
 
     if (document.fullscreenElement) {
       void document.exitFullscreen().catch(() => undefined);
     }
 
-    setActiveDocumentId(null);
+    clearActiveDocument();
     setScreen("home");
     navigate("/library");
-  }, [navigate, persistCurrentSnapshot, saveActiveProgress]);
+  }, [
+    clearActiveDocument,
+    navigate,
+    pauseReader,
+    persistCurrentSnapshot,
+    saveActiveProgress,
+  ]);
 
   const exitFocusMode = useCallback(async () => {
     setIsFocusMode(false);
@@ -1072,130 +1035,16 @@ function App() {
 
   const seekToWord = useCallback(
     (requestedIndex: number) => {
-      if (words.length === 0) {
-        return;
-      }
-
-      const safeIndex = Math.min(
-        Math.max(Math.round(requestedIndex), 0),
-        words.length - 1,
-      );
-
-      setIsPlaying(false);
-      setCurrentWordIndex(safeIndex);
+      seekPlayerToWord(requestedIndex);
       setAreReaderControlsVisible(true);
     },
-    [words.length],
+    [seekPlayerToWord],
   );
 
   const restartCurrentReading = useCallback(() => {
-    if (words.length === 0) {
-      return;
-    }
-
-    setCurrentWordIndex(0);
-    setIsPlaying(true);
+    restartPlayerReading();
     setAreReaderControlsVisible(true);
-  }, [words.length]);
-
-  const togglePlayback = useCallback(() => {
-    if (words.length === 0) {
-      return;
-    }
-
-    if (isPlaying) {
-      setIsPlaying(false);
-      return;
-    }
-
-    if (currentWordIndex >= words.length - 1) {
-      setCurrentWordIndex(0);
-    }
-
-    setIsPlaying(true);
-  }, [currentWordIndex, isPlaying, words.length]);
-
-  const previousWord = useCallback(() => {
-    setIsPlaying(false);
-    setCurrentWordIndex((currentIndex) =>
-      Math.max(0, currentIndex - 1),
-    );
-  }, []);
-
-  const nextWord = useCallback(() => {
-    setIsPlaying(false);
-    setCurrentWordIndex((currentIndex) =>
-      Math.min(words.length - 1, currentIndex + 1),
-    );
-  }, [words.length]);
-
-  const increaseSpeed = useCallback(() => {
-    setWordsPerMinute((currentWpm) =>
-      Math.min(MAX_WPM, currentWpm + WPM_STEP),
-    );
-  }, []);
-
-  const decreaseSpeed = useCallback(() => {
-    setWordsPerMinute((currentWpm) =>
-      Math.max(MIN_WPM, currentWpm - WPM_STEP),
-    );
-  }, []);
-
-  const increaseFontSize = useCallback(() => {
-    setFontSize((currentSize) =>
-      Math.min(MAX_FONT_SIZE, currentSize + FONT_SIZE_STEP),
-    );
-  }, []);
-
-  const decreaseFontSize = useCallback(() => {
-    setFontSize((currentSize) =>
-      Math.max(MIN_FONT_SIZE, currentSize - FONT_SIZE_STEP),
-    );
-  }, []);
-
-  useEffect(() => {
-    if (
-      screen !== "reader" ||
-      !isPlaying ||
-      words.length === 0
-    ) {
-      return;
-    }
-
-    if (currentWordIndex >= words.length - 1) {
-      setIsPlaying(false);
-      return;
-    }
-
-    const delayInMilliseconds = getWordDelay(
-      words[currentWordIndex] ?? "",
-      wordsPerMinute,
-      useNaturalPauses,
-    );
-
-    const timer = window.setTimeout(() => {
-      const nextIndex = currentWordIndex + 1;
-
-      setCurrentWordIndex(
-        Math.min(nextIndex, words.length - 1),
-      );
-
-      if (nextIndex >= words.length - 1) {
-        setIsPlaying(false);
-      }
-    }, Math.max(20, delayInMilliseconds));
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [
-    currentWordIndex,
-    isPlaying,
-    screen,
-    useNaturalPauses,
-    words,
-    wordsPerMinute,
-  ]);
+  }, [restartPlayerReading]);
 
   useEffect(() => {
     if (screen !== "reader" || !activeDocumentId) {
@@ -1327,14 +1176,14 @@ function App() {
     if (!readerMatch) {
       if (screen === "reader") {
         persistCurrentSnapshot();
-        setIsPlaying(false);
+        pauseReader();
         setIsFocusMode(false);
 
         if (document.fullscreenElement) {
           void document.exitFullscreen().catch(() => undefined);
         }
 
-        setActiveDocumentId(null);
+        clearActiveDocument();
         setScreen("home");
       }
 
@@ -1345,7 +1194,14 @@ function App() {
 
     if (routeDocumentId === "demo") {
       if (screen !== "reader" || activeDocumentId !== null) {
-        loadReaderState("RSVP demonstration", DEMO_TEXT);
+        const result = loadReaderState("RSVP demonstration", DEMO_TEXT);
+
+        if (result.success) {
+          setScreen("reader");
+          setLastSavedAt(null);
+          lastBackgroundLineTopRef.current = null;
+          lastAutoSaveAtRef.current = 0;
+        }
       }
 
       return;
@@ -1368,23 +1224,36 @@ function App() {
       screen !== "reader" ||
       activeDocumentId !== savedDocument.id
     ) {
-      loadReaderState(savedDocument.title, savedDocument.text, {
-        documentId: savedDocument.id,
-        startIndex: savedDocument.currentWordIndex,
-        savedWordsPerMinute: savedDocument.wordsPerMinute,
-        savedFontSize: savedDocument.fontSize,
-        savedNaturalPauses: savedDocument.useNaturalPauses,
-      });
+      const result = loadReaderState(
+        savedDocument.title,
+        savedDocument.text,
+        {
+          documentId: savedDocument.id,
+          startIndex: savedDocument.currentWordIndex,
+          savedWordsPerMinute: savedDocument.wordsPerMinute,
+          savedFontSize: savedDocument.fontSize,
+          savedNaturalPauses: savedDocument.useNaturalPauses,
+        },
+      );
+
+      if (result.success) {
+        setScreen("reader");
+        setLastSavedAt(Date.now());
+        lastBackgroundLineTopRef.current = null;
+        lastAutoSaveAtRef.current = 0;
+      }
     }
   }, [
     activeDocumentId,
+    clearActiveDocument,
+    isLibraryLoading,
     loadReaderState,
     location.pathname,
     navigate,
+    pauseReader,
     persistCurrentSnapshot,
     savedDocuments,
     screen,
-    isLibraryLoading,
     user,
   ]);
 
@@ -1621,9 +1490,7 @@ function App() {
       onIncreaseSpeed={increaseSpeed}
       onDecreaseFontSize={decreaseFontSize}
       onIncreaseFontSize={increaseFontSize}
-      onToggleNaturalPauses={() =>
-        setUseNaturalPauses((currentValue) => !currentValue)
-      }
+      onToggleNaturalPauses={toggleNaturalPauses}
       onSeekToWord={seekToWord}
       onRestartReading={restartCurrentReading}
     />

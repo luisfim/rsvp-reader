@@ -15,7 +15,7 @@ import { type SavedDocument } from "./lib/library";
 
 import type { ReaderOptions, Screen } from "./types/reader";
 
-import { useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import { useAuth } from "./auth/AuthContext";
 import { AuthPage } from "./components/AuthPage";
 import { ReaderPage } from "./components/reader/ReaderPage";
@@ -26,6 +26,10 @@ import { useReaderFocusMode } from "./hooks/useReaderFocusMode";
 import { useReaderKeyboardControls } from "./hooks/useReaderKeyboardControls";
 import { useLibrarySync } from "./hooks/useLibrarySync";
 import { useDocumentImport } from "./hooks/useDocumentImport";
+import {
+  getScreenFromPath,
+  useAppNavigation,
+} from "./hooks/useAppNavigation";
 import { useRsvpPlayer } from "./hooks/useRsvpPlayer";
 import type {
   CloudConnectionStatus,
@@ -36,13 +40,9 @@ import "./App.css";
 
 function App() {
   const location = useLocation();
-  const navigate = useNavigate();
+  const screen: Screen = getScreenFromPath(location.pathname);
   const { user, isLoading: isAuthLoading } = useAuth();
   const isOnline = useOnlineStatus();
-
-  const [screen, setScreen] = useState<Screen>(() =>
-    location.pathname.startsWith("/reader/") ? "reader" : "home",
-  );
 
   const {
     savedDocuments,
@@ -78,6 +78,11 @@ function App() {
   const activeBackgroundWordRef = useRef<HTMLSpanElement | null>(null);
   const lastBackgroundLineTopRef = useRef<number | null>(null);
   const lastAutoSaveAtRef = useRef(0);
+
+  const resetReaderView = useCallback(() => {
+    lastBackgroundLineTopRef.current = null;
+    lastAutoSaveAtRef.current = 0;
+  }, []);
 
   const {
     documentTitle,
@@ -226,37 +231,6 @@ function App() {
     : "Demo not saved";
 
 
-  const openReader = useCallback(
-    (
-      title: string,
-      text: string,
-      options: ReaderOptions = {},
-    ) => {
-      const result = loadReaderState(title, text, options);
-
-      if (!result.success) {
-        return {
-          success: false as const,
-          error: result.error ?? "The text could not be opened.",
-        };
-      }
-
-      setScreen("reader");
-      markReaderOpened(options.documentId);
-      lastBackgroundLineTopRef.current = null;
-      lastAutoSaveAtRef.current = 0;
-
-      const destination = options.documentId
-        ? `/reader/${encodeURIComponent(options.documentId)}`
-        : "/reader/demo";
-
-      navigate(destination);
-
-      return { success: true as const };
-    },
-    [loadReaderState, markReaderOpened, navigate],
-  );
-
   const {
     draftTitle,
     draftText,
@@ -272,6 +246,52 @@ function App() {
     createDocumentFromDraft,
     handlePdfUpload,
   } = useDocumentImport();
+
+  const saveActiveProgress = useCallback(() => {
+    saveReaderProgress({
+      activeDocumentId,
+      currentWordIndex,
+      wordsPerMinute,
+      fontSize,
+      useNaturalPauses,
+    });
+  }, [
+    activeDocumentId,
+    currentWordIndex,
+    fontSize,
+    saveReaderProgress,
+    useNaturalPauses,
+    wordsPerMinute,
+  ]);
+
+  const persistCurrentSnapshot = useCallback(() => {
+    persistReaderSnapshot(getSnapshot());
+  }, [getSnapshot, persistReaderSnapshot]);
+
+  const {
+    isAuthPage,
+    isLibraryPage,
+    navigateHome,
+    openLibrary,
+    openAccount,
+    openReader,
+    returnHome,
+    returnToLibrary,
+  } = useAppNavigation({
+    screen,
+    savedDocuments,
+    isLibraryLoading,
+    isAuthenticated: Boolean(user),
+    activeDocumentId,
+    loadReaderState,
+    pauseReader,
+    clearActiveDocument,
+    exitFocusMode,
+    markReaderOpened,
+    saveActiveProgress,
+    persistCurrentSnapshot,
+    resetReaderView,
+  });
 
   const startPastedText = () => {
     const newDocument = createDocumentFromDraft();
@@ -305,17 +325,6 @@ function App() {
   const startDemo = () => {
     openReader("RSVP demonstration", DEMO_TEXT);
   };
-
-  const openLibrary = useCallback(() => {
-    navigate("/library");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [navigate]);
-
-  const openAccount = useCallback(() => {
-    navigate("/auth");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [navigate]);
-
 
   const continueSavedDocument = (savedDocument: SavedDocument) => {
     openReader(savedDocument.title, savedDocument.text, {
@@ -402,63 +411,6 @@ function App() {
     setRenameValue("");
   };
 
-  const saveActiveProgress = useCallback(() => {
-    saveReaderProgress({
-      activeDocumentId,
-      currentWordIndex,
-      wordsPerMinute,
-      fontSize,
-      useNaturalPauses,
-    });
-  }, [
-    activeDocumentId,
-    currentWordIndex,
-    fontSize,
-    saveReaderProgress,
-    useNaturalPauses,
-    wordsPerMinute,
-  ]);
-
-  const persistCurrentSnapshot = useCallback(() => {
-    persistReaderSnapshot(getSnapshot());
-  }, [getSnapshot, persistReaderSnapshot]);
-
-  const returnHome = useCallback(() => {
-    saveActiveProgress();
-    persistCurrentSnapshot();
-    pauseReader();
-    void exitFocusMode();
-
-    clearActiveDocument();
-    setScreen("home");
-    navigate("/");
-  }, [
-    clearActiveDocument,
-    exitFocusMode,
-    navigate,
-    pauseReader,
-    persistCurrentSnapshot,
-    saveActiveProgress,
-  ]);
-
-  const returnToLibrary = useCallback(() => {
-    saveActiveProgress();
-    persistCurrentSnapshot();
-    pauseReader();
-    void exitFocusMode();
-
-    clearActiveDocument();
-    setScreen("home");
-    navigate("/library");
-  }, [
-    clearActiveDocument,
-    exitFocusMode,
-    navigate,
-    pauseReader,
-    persistCurrentSnapshot,
-    saveActiveProgress,
-  ]);
-
   const seekToWord = useCallback(
     (requestedIndex: number) => {
       seekPlayerToWord(requestedIndex);
@@ -516,32 +468,6 @@ function App() {
   ]);
 
   useEffect(() => {
-    const handlePageHide = () => {
-      persistCurrentSnapshot();
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        persistCurrentSnapshot();
-      }
-    };
-
-    window.addEventListener("pagehide", handlePageHide);
-    document.addEventListener(
-      "visibilitychange",
-      handleVisibilityChange,
-    );
-
-    return () => {
-      window.removeEventListener("pagehide", handlePageHide);
-      document.removeEventListener(
-        "visibilitychange",
-        handleVisibilityChange,
-      );
-    };
-  }, [persistCurrentSnapshot]);
-
-  useEffect(() => {
     if (screen !== "reader") {
       return;
     }
@@ -583,94 +509,6 @@ function App() {
     });
   }, [currentWordIndex, isPlaying, screen]);
 
-  useEffect(() => {
-    const readerMatch = location.pathname.match(/^\/reader\/([^/]+)$/);
-
-    if (!readerMatch) {
-      if (screen === "reader") {
-        persistCurrentSnapshot();
-        pauseReader();
-        void exitFocusMode();
-
-        clearActiveDocument();
-        setScreen("home");
-      }
-
-      return;
-    }
-
-    const routeDocumentId = decodeURIComponent(readerMatch[1]);
-
-    if (routeDocumentId === "demo") {
-      if (screen !== "reader" || activeDocumentId !== null) {
-        const result = loadReaderState("RSVP demonstration", DEMO_TEXT);
-
-        if (result.success) {
-          setScreen("reader");
-          markReaderOpened(null);
-          lastBackgroundLineTopRef.current = null;
-          lastAutoSaveAtRef.current = 0;
-        }
-      }
-
-      return;
-    }
-
-    if (user && isLibraryLoading) {
-      return;
-    }
-
-    const savedDocument = savedDocuments.find(
-      (document) => document.id === routeDocumentId,
-    );
-
-    if (!savedDocument) {
-      navigate("/library", { replace: true });
-      return;
-    }
-
-    if (
-      screen !== "reader" ||
-      activeDocumentId !== savedDocument.id
-    ) {
-      const result = loadReaderState(
-        savedDocument.title,
-        savedDocument.text,
-        {
-          documentId: savedDocument.id,
-          startIndex: savedDocument.currentWordIndex,
-          savedWordsPerMinute: savedDocument.wordsPerMinute,
-          savedFontSize: savedDocument.fontSize,
-          savedNaturalPauses: savedDocument.useNaturalPauses,
-        },
-      );
-
-      if (result.success) {
-        setScreen("reader");
-        markReaderOpened(savedDocument.id);
-        lastBackgroundLineTopRef.current = null;
-        lastAutoSaveAtRef.current = 0;
-      }
-    }
-  }, [
-    activeDocumentId,
-    clearActiveDocument,
-    exitFocusMode,
-    isLibraryLoading,
-    loadReaderState,
-    location.pathname,
-    markReaderOpened,
-    navigate,
-    pauseReader,
-    persistCurrentSnapshot,
-    savedDocuments,
-    screen,
-    user,
-  ]);
-
-  const isAuthPage = location.pathname.startsWith("/auth");
-  const isLibraryPage = location.pathname === "/library";
-
   if (screen === "home" && isAuthPage) {
     return <AuthPage />;
   }
@@ -697,7 +535,7 @@ function App() {
         libraryError={libraryError}
         renamingDocumentId={renamingDocumentId}
         renameValue={renameValue}
-        onNavigateHome={() => navigate("/")}
+        onNavigateHome={navigateHome}
         onOpenLibrary={openLibrary}
         onOpenAccount={openAccount}
         onRetrySync={() => void synchronizeCurrentCloudLibrary()}
@@ -736,7 +574,7 @@ function App() {
         isExtractingPdf={isExtractingPdf}
         pdfProgress={pdfProgress}
         pdfInputRef={pdfInputRef}
-        onNavigateHome={() => navigate("/")}
+        onNavigateHome={navigateHome}
         onOpenLibrary={openLibrary}
         onOpenAccount={openAccount}
         onStartDemo={startDemo}

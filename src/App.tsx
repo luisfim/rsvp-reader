@@ -17,22 +17,8 @@ import {
 
 import {
   createSavedDocument,
-  loadSavedDocuments,
-  persistSavedDocuments,
   type SavedDocument,
 } from "./lib/library";
-
-import {
-  mergeDocumentLibraries,
-  synchronizeCloudLibrary,
-} from "./lib/cloudLibrary";
-import {
-  loadOfflineCloudState,
-  queueOfflineCloudDeletion,
-  saveOfflineCloudState,
-  withOfflineDocuments,
-  type OfflineCloudState,
-} from "./lib/offlineCloudLibrary";
 import { extractTextFromPdf } from "./lib/pdf";
 import { tokenizeText } from "./lib/reader";
 
@@ -47,52 +33,14 @@ import { LibraryPage } from "./pages/LibraryPage";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { useReaderFocusMode } from "./hooks/useReaderFocusMode";
 import { useReaderKeyboardControls } from "./hooks/useReaderKeyboardControls";
+import { useLibrarySync } from "./hooks/useLibrarySync";
 import { useRsvpPlayer } from "./hooks/useRsvpPlayer";
 import type {
   CloudConnectionStatus,
-  CloudSyncState,
-  LibraryMode,
   LibrarySort,
 } from "./types/app";
 
 import "./App.css";
-
-function documentLibrariesMatch(
-  firstLibrary: SavedDocument[],
-  secondLibrary: SavedDocument[],
-): boolean {
-  if (firstLibrary.length !== secondLibrary.length) {
-    return false;
-  }
-
-  const secondLibraryById = new Map(
-    secondLibrary.map((document) => [document.id, document]),
-  );
-
-  return firstLibrary.every((document) => {
-    const matchingDocument = secondLibraryById.get(document.id);
-
-    return (
-      matchingDocument?.updatedAt === document.updatedAt &&
-      matchingDocument.title === document.title &&
-      matchingDocument.currentWordIndex ===
-        document.currentWordIndex &&
-      matchingDocument.wordsPerMinute ===
-        document.wordsPerMinute &&
-      matchingDocument.fontSize === document.fontSize &&
-      matchingDocument.useNaturalPauses ===
-        document.useNaturalPauses
-    );
-  });
-}
-
-function createEmptyOfflineCloudState(): OfflineCloudState {
-  return {
-    documents: [],
-    deletions: [],
-    updatedAt: new Date(0).toISOString(),
-  };
-}
 
 function App() {
   const location = useLocation();
@@ -112,21 +60,28 @@ function App() {
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(0);
 
-  const [savedDocuments, setSavedDocuments] = useState<SavedDocument[]>(
-    () => loadSavedDocuments(),
-  );
-
-  const [libraryError, setLibraryError] = useState("");
-  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
-  const [libraryMode, setLibraryMode] = useState<LibraryMode>("local");
-  const [isLibraryLoading, setIsLibraryLoading] = useState(false);
-  const [cloudSyncState, setCloudSyncState] =
-    useState<CloudSyncState>("idle");
-  const [localMigrationDocuments, setLocalMigrationDocuments] = useState<
-    SavedDocument[]
-  >([]);
-  const [showMigrationPrompt, setShowMigrationPrompt] = useState(false);
-  const [isMigratingLibrary, setIsMigratingLibrary] = useState(false);
+  const {
+    savedDocuments,
+    setSavedDocuments,
+    libraryError,
+    lastSavedAt,
+    libraryMode,
+    isLibraryLoading,
+    cloudSyncState,
+    localMigrationDocuments,
+    showMigrationPrompt,
+    isMigratingLibrary,
+    synchronizeCurrentCloudLibrary,
+    importLocalLibraryToCloud,
+    dismissMigrationPrompt,
+    deleteDocument,
+    saveReaderProgress,
+    persistReaderSnapshot,
+    markReaderOpened,
+  } = useLibrarySync({
+    userId: user?.id ?? null,
+    isOnline,
+  });
   const [libraryQuery, setLibraryQuery] = useState("");
   const [librarySort, setLibrarySort] = useState<LibrarySort>("recent");
   const [renamingDocumentId, setRenamingDocumentId] = useState<
@@ -140,12 +95,6 @@ function App() {
   const lastBackgroundLineTopRef = useRef<number | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
   const lastAutoSaveAtRef = useRef(0);
-  const cloudLibraryReadyRef = useRef(false);
-  const cloudSyncTimerRef = useRef<number | null>(null);
-  const cloudSyncInProgressRef = useRef(false);
-  const cloudSyncRequestedRef = useRef(false);
-  const offlineCloudStateRef = useRef<OfflineCloudState | null>(null);
-  const savedDocumentsRef = useRef<SavedDocument[]>(savedDocuments);
 
   const {
     documentTitle,
@@ -299,271 +248,6 @@ function App() {
     : "Demo not saved";
 
 
-  const synchronizeCurrentCloudLibrary = useCallback(
-    async (stateOverride?: OfflineCloudState) => {
-      if (!user) {
-        return;
-      }
-
-      if (!isOnline) {
-        setCloudSyncState("offline");
-        return;
-      }
-
-      if (cloudSyncInProgressRef.current) {
-        cloudSyncRequestedRef.current = true;
-        setCloudSyncState("pending");
-        return;
-      }
-
-      cloudSyncInProgressRef.current = true;
-
-      try {
-        do {
-          cloudSyncRequestedRef.current = false;
-          setCloudSyncState("syncing");
-
-          const cachedState =
-            stateOverride ??
-            offlineCloudStateRef.current ??
-            (await loadOfflineCloudState(user.id));
-
-          const stateToSynchronize = withOfflineDocuments(
-            cachedState,
-            savedDocumentsRef.current,
-          );
-
-          offlineCloudStateRef.current = stateToSynchronize;
-          await saveOfflineCloudState(user.id, stateToSynchronize);
-
-          const synchronizedState = await synchronizeCloudLibrary(
-            user.id,
-            stateToSynchronize,
-          );
-
-          const latestLocalState = offlineCloudStateRef.current;
-          const localChangedDuringSync =
-            latestLocalState &&
-            Date.parse(latestLocalState.updatedAt) >
-              Date.parse(stateToSynchronize.updatedAt);
-
-          const nextState = localChangedDuringSync
-            ? {
-                documents: mergeDocumentLibraries(
-                  synchronizedState.documents,
-                  latestLocalState.documents,
-                ),
-                deletions: latestLocalState.deletions,
-                updatedAt: latestLocalState.updatedAt,
-              }
-            : synchronizedState;
-
-          offlineCloudStateRef.current = nextState;
-          await saveOfflineCloudState(user.id, nextState);
-
-          if (
-            !documentLibrariesMatch(
-              savedDocumentsRef.current,
-              nextState.documents,
-            )
-          ) {
-            savedDocumentsRef.current = nextState.documents;
-            setSavedDocuments(nextState.documents);
-          }
-
-          if (localChangedDuringSync) {
-            cloudSyncRequestedRef.current = true;
-          }
-
-          setCloudSyncState(
-            cloudSyncRequestedRef.current ? "pending" : "synced",
-          );
-          setLibraryError("");
-          setLastSavedAt(Date.now());
-          stateOverride = undefined;
-        } while (cloudSyncRequestedRef.current && isOnline);
-      } catch (error) {
-        setCloudSyncState(isOnline ? "pending" : "offline");
-        setLibraryError(
-          error instanceof Error
-            ? `Cloud sync is pending: ${error.message}`
-            : "Cloud sync is pending until a connection is available.",
-        );
-      } finally {
-        cloudSyncInProgressRef.current = false;
-      }
-    },
-    [isOnline, user],
-  );
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    async function switchLibraryForCurrentUser() {
-      cloudLibraryReadyRef.current = false;
-      offlineCloudStateRef.current = null;
-
-      if (!user) {
-        setLibraryMode("local");
-        setIsLibraryLoading(false);
-        setCloudSyncState("idle");
-        setLocalMigrationDocuments([]);
-        setShowMigrationPrompt(false);
-        const localDocuments = loadSavedDocuments();
-        savedDocumentsRef.current = localDocuments;
-        setSavedDocuments(localDocuments);
-        return;
-      }
-
-      const localDocuments = loadSavedDocuments();
-
-      setLibraryMode("cloud");
-      setIsLibraryLoading(true);
-      setCloudSyncState(isOnline ? "loading" : "offline");
-      setLibraryError("");
-
-      try {
-        const cachedState = await loadOfflineCloudState(user.id);
-
-        if (isCancelled) {
-          return;
-        }
-
-        offlineCloudStateRef.current = cachedState;
-        savedDocumentsRef.current = cachedState.documents;
-        setSavedDocuments(cachedState.documents);
-        cloudLibraryReadyRef.current = true;
-        setIsLibraryLoading(false);
-
-        const documentsAvailableForImport = localDocuments.filter(
-          (localDocument) => {
-            const cachedDocument = cachedState.documents.find(
-              (document) => document.id === localDocument.id,
-            );
-
-            return (
-              !cachedDocument ||
-              Date.parse(localDocument.updatedAt) >
-                Date.parse(cachedDocument.updatedAt)
-            );
-          },
-        );
-
-        setLocalMigrationDocuments(documentsAvailableForImport);
-        setShowMigrationPrompt(documentsAvailableForImport.length > 0);
-
-        if (!isOnline) {
-          setCloudSyncState("offline");
-          return;
-        }
-
-        await synchronizeCurrentCloudLibrary(cachedState);
-      } catch (error) {
-        if (isCancelled) {
-          return;
-        }
-
-        cloudLibraryReadyRef.current = true;
-        setCloudSyncState(isOnline ? "pending" : "offline");
-        setLibraryError(
-          error instanceof Error
-            ? `The cached cloud library is available, but synchronization is pending: ${error.message}`
-            : "The cached cloud library is available, but synchronization is pending.",
-        );
-      } finally {
-        if (!isCancelled) {
-          setIsLibraryLoading(false);
-        }
-      }
-    }
-
-    void switchLibraryForCurrentUser();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [user?.id]);
-
-  useEffect(() => {
-    savedDocumentsRef.current = savedDocuments;
-
-    if (!user) {
-      try {
-        persistSavedDocuments(savedDocuments);
-        setLibraryError("");
-      } catch {
-        setLibraryError(
-          "The document could not be saved. Browser storage may be full.",
-        );
-      }
-
-      return;
-    }
-
-    const currentOfflineState =
-      offlineCloudStateRef.current ?? createEmptyOfflineCloudState();
-
-    if (
-      documentLibrariesMatch(
-        currentOfflineState.documents,
-        savedDocuments,
-      )
-    ) {
-      return;
-    }
-
-    const nextOfflineState = withOfflineDocuments(
-      currentOfflineState,
-      savedDocuments,
-    );
-
-    offlineCloudStateRef.current = nextOfflineState;
-    void saveOfflineCloudState(user.id, nextOfflineState);
-
-    if (!cloudLibraryReadyRef.current) {
-      return;
-    }
-
-    if (!isOnline) {
-      setCloudSyncState("offline");
-      return;
-    }
-
-    if (cloudSyncTimerRef.current !== null) {
-      window.clearTimeout(cloudSyncTimerRef.current);
-    }
-
-    setCloudSyncState("pending");
-
-    cloudSyncTimerRef.current = window.setTimeout(() => {
-      void synchronizeCurrentCloudLibrary(nextOfflineState);
-    }, 650);
-
-    return () => {
-      if (cloudSyncTimerRef.current !== null) {
-        window.clearTimeout(cloudSyncTimerRef.current);
-      }
-    };
-  }, [
-    isOnline,
-    savedDocuments,
-    synchronizeCurrentCloudLibrary,
-    user,
-  ]);
-
-  useEffect(() => {
-    if (!user || !cloudLibraryReadyRef.current) {
-      return;
-    }
-
-    if (!isOnline) {
-      setCloudSyncState("offline");
-      return;
-    }
-
-    void synchronizeCurrentCloudLibrary();
-  }, [isOnline, synchronizeCurrentCloudLibrary, user]);
-
   const openReader = useCallback(
     (
       title: string,
@@ -579,7 +263,7 @@ function App() {
 
       setFormError("");
       setScreen("reader");
-      setLastSavedAt(options.documentId ? Date.now() : null);
+      markReaderOpened(options.documentId);
       lastBackgroundLineTopRef.current = null;
       lastAutoSaveAtRef.current = 0;
 
@@ -589,7 +273,7 @@ function App() {
 
       navigate(destination);
     },
-    [loadReaderState, navigate],
+    [loadReaderState, markReaderOpened, navigate],
   );
   const startPastedText = () => {
     const parsedWords = tokenizeText(draftText);
@@ -637,53 +321,6 @@ function App() {
     navigate("/auth");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [navigate]);
-
-  const importLocalLibraryToCloud = async () => {
-    if (!user || localMigrationDocuments.length === 0) {
-      return;
-    }
-
-    setIsMigratingLibrary(true);
-    setLibraryError("");
-
-    try {
-      const mergedDocuments = mergeDocumentLibraries(
-        savedDocuments,
-        localMigrationDocuments,
-      );
-      const currentOfflineState =
-        offlineCloudStateRef.current ?? createEmptyOfflineCloudState();
-      const nextOfflineState = withOfflineDocuments(
-        currentOfflineState,
-        mergedDocuments,
-      );
-
-      offlineCloudStateRef.current = nextOfflineState;
-      savedDocumentsRef.current = mergedDocuments;
-      await saveOfflineCloudState(user.id, nextOfflineState);
-      setSavedDocuments(mergedDocuments);
-      setShowMigrationPrompt(false);
-      setCloudSyncState(isOnline ? "pending" : "offline");
-      setLastSavedAt(Date.now());
-
-      if (isOnline) {
-        await synchronizeCurrentCloudLibrary(nextOfflineState);
-      }
-    } catch (error) {
-      setCloudSyncState(isOnline ? "pending" : "offline");
-      setLibraryError(
-        error instanceof Error
-          ? `Local documents were cached, but cloud import is pending: ${error.message}`
-          : "Local documents were cached, but cloud import is pending.",
-      );
-    } finally {
-      setIsMigratingLibrary(false);
-    }
-  };
-
-  const dismissMigrationPrompt = () => {
-    setShowMigrationPrompt(false);
-  };
 
   const handlePdfUpload = async (
     event: ChangeEvent<HTMLInputElement>,
@@ -802,34 +439,7 @@ function App() {
       return;
     }
 
-    const nextDocuments = savedDocumentsRef.current.filter(
-      (document) => document.id !== savedDocument.id,
-    );
-
-    savedDocumentsRef.current = nextDocuments;
-    setSavedDocuments(nextDocuments);
-
-    if (!user) {
-      return;
-    }
-
-    const currentOfflineState =
-      offlineCloudStateRef.current ?? createEmptyOfflineCloudState();
-    const nextOfflineState = queueOfflineCloudDeletion(
-      {
-        ...currentOfflineState,
-        documents: nextDocuments,
-      },
-      savedDocument,
-    );
-
-    offlineCloudStateRef.current = nextOfflineState;
-    await saveOfflineCloudState(user.id, nextOfflineState);
-    setCloudSyncState(isOnline ? "pending" : "offline");
-
-    if (isOnline) {
-      void synchronizeCurrentCloudLibrary(nextOfflineState);
-    }
+    await deleteDocument(savedDocument);
   };
 
   const startRenamingDocument = (savedDocument: SavedDocument) => {
@@ -872,85 +482,25 @@ function App() {
   };
 
   const saveActiveProgress = useCallback(() => {
-    if (!activeDocumentId) {
-      return;
-    }
-
-    const updatedAt = new Date().toISOString();
-
-    setSavedDocuments((currentDocuments) =>
-      currentDocuments.map((document) =>
-        document.id === activeDocumentId
-          ? {
-              ...document,
-              currentWordIndex,
-              wordsPerMinute,
-              fontSize,
-              useNaturalPauses,
-              updatedAt,
-            }
-          : document,
-      ),
-    );
-
-    setLastSavedAt(Date.now());
+    saveReaderProgress({
+      activeDocumentId,
+      currentWordIndex,
+      wordsPerMinute,
+      fontSize,
+      useNaturalPauses,
+    });
   }, [
     activeDocumentId,
     currentWordIndex,
     fontSize,
+    saveReaderProgress,
     useNaturalPauses,
     wordsPerMinute,
   ]);
 
   const persistCurrentSnapshot = useCallback(() => {
-    const snapshot = getSnapshot();
-
-    if (!snapshot.activeDocumentId) {
-      return;
-    }
-
-    const updatedAt = new Date().toISOString();
-
-    const updatedDocuments = savedDocumentsRef.current.map((document) =>
-      document.id === snapshot.activeDocumentId
-        ? {
-            ...document,
-            currentWordIndex: snapshot.currentWordIndex,
-            wordsPerMinute: snapshot.wordsPerMinute,
-            fontSize: snapshot.fontSize,
-            useNaturalPauses: snapshot.useNaturalPauses,
-            updatedAt,
-          }
-        : document,
-    );
-
-    if (user) {
-      savedDocumentsRef.current = updatedDocuments;
-
-      const currentOfflineState =
-        offlineCloudStateRef.current ?? createEmptyOfflineCloudState();
-      const nextOfflineState = withOfflineDocuments(
-        currentOfflineState,
-        updatedDocuments,
-      );
-
-      offlineCloudStateRef.current = nextOfflineState;
-      void saveOfflineCloudState(user.id, nextOfflineState);
-
-      if (isOnline) {
-        void synchronizeCurrentCloudLibrary(nextOfflineState);
-      }
-
-      return;
-    }
-
-    try {
-      persistSavedDocuments(updatedDocuments);
-      savedDocumentsRef.current = updatedDocuments;
-    } catch {
-      // A pagehide event has no reliable place to display an error.
-    }
-  }, [getSnapshot, isOnline, synchronizeCurrentCloudLibrary, user]);
+    persistReaderSnapshot(getSnapshot());
+  }, [getSnapshot, persistReaderSnapshot]);
 
   const returnHome = useCallback(() => {
     saveActiveProgress();
@@ -1136,7 +686,7 @@ function App() {
 
         if (result.success) {
           setScreen("reader");
-          setLastSavedAt(null);
+          markReaderOpened(null);
           lastBackgroundLineTopRef.current = null;
           lastAutoSaveAtRef.current = 0;
         }
@@ -1176,7 +726,7 @@ function App() {
 
       if (result.success) {
         setScreen("reader");
-        setLastSavedAt(Date.now());
+        markReaderOpened(savedDocument.id);
         lastBackgroundLineTopRef.current = null;
         lastAutoSaveAtRef.current = 0;
       }
@@ -1188,6 +738,7 @@ function App() {
     isLibraryLoading,
     loadReaderState,
     location.pathname,
+    markReaderOpened,
     navigate,
     pauseReader,
     persistCurrentSnapshot,

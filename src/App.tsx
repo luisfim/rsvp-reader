@@ -28,6 +28,12 @@ import {
   type SavedDocument,
 } from "./lib/library";
 
+import {
+  deleteCloudDocument,
+  loadCloudDocuments,
+  mergeDocumentLibraries,
+  upsertCloudDocuments,
+} from "./lib/cloudLibrary";
 import { extractTextFromPdf } from "./lib/pdf";
 import {
   getFocusLetterIndex,
@@ -48,6 +54,8 @@ import { AuthPage } from "./components/AuthPage";
 import "./App.css";
 
 type LibrarySort = "recent" | "title" | "progress";
+type LibraryMode = "local" | "cloud";
+type CloudSyncState = "idle" | "loading" | "syncing" | "synced" | "error";
 
 function App() {
   const location = useLocation();
@@ -74,6 +82,9 @@ function App() {
   const [wordsPerMinute, setWordsPerMinute] = useState(DEFAULT_WPM);
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [useNaturalPauses, setUseNaturalPauses] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(false);
+  const [areReaderControlsVisible, setAreReaderControlsVisible] =
+    useState(true);
 
   const [savedDocuments, setSavedDocuments] = useState<SavedDocument[]>(
     () => loadSavedDocuments(),
@@ -85,6 +96,15 @@ function App() {
 
   const [libraryError, setLibraryError] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [libraryMode, setLibraryMode] = useState<LibraryMode>("local");
+  const [isLibraryLoading, setIsLibraryLoading] = useState(false);
+  const [cloudSyncState, setCloudSyncState] =
+    useState<CloudSyncState>("idle");
+  const [localMigrationDocuments, setLocalMigrationDocuments] = useState<
+    SavedDocument[]
+  >([]);
+  const [showMigrationPrompt, setShowMigrationPrompt] = useState(false);
+  const [isMigratingLibrary, setIsMigratingLibrary] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState("");
   const [librarySort, setLibrarySort] = useState<LibrarySort>("recent");
   const [renamingDocumentId, setRenamingDocumentId] = useState<
@@ -93,11 +113,15 @@ function App() {
   const [renameValue, setRenameValue] = useState("");
 
   const librarySectionRef = useRef<HTMLElement | null>(null);
+  const readerShellRef = useRef<HTMLDivElement | null>(null);
   const documentLayerRef = useRef<HTMLDivElement | null>(null);
   const activeBackgroundWordRef = useRef<HTMLSpanElement | null>(null);
   const lastBackgroundLineTopRef = useRef<number | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
   const lastAutoSaveAtRef = useRef(0);
+  const cloudLibraryReadyRef = useRef(false);
+  const cloudSyncTimerRef = useRef<number | null>(null);
+  const controlsHideTimerRef = useRef<number | null>(null);
   const savedDocumentsRef = useRef<SavedDocument[]>(savedDocuments);
 
   const readerSnapshotRef = useRef<ReaderSnapshot>({
@@ -199,9 +223,28 @@ function App() {
       ? Math.max(1, Math.ceil(remainingWords / wordsPerMinute))
       : 0;
 
+  const isReadingComplete =
+    words.length > 0 &&
+    currentWordIndex >= words.length - 1 &&
+    !isPlaying;
+
   const accountLabel = isAuthLoading
     ? "Loading…"
     : user?.email || "Sign in";
+
+  const libraryStorageLabel =
+    libraryMode === "cloud" ? "Cloud library" : "Local library";
+  const readerSaveLabel = activeDocumentId
+    ? libraryMode === "cloud"
+      ? cloudSyncState === "syncing"
+        ? "Syncing…"
+        : cloudSyncState === "error"
+          ? "Cloud sync failed"
+          : "Saved to cloud"
+      : lastSavedAt
+        ? "Saved locally"
+        : "Saving…"
+    : "Demo not saved";
 
   useEffect(() => {
     readerSnapshotRef.current = {
@@ -220,17 +263,131 @@ function App() {
   ]);
 
   useEffect(() => {
+    let isCancelled = false;
+
+    async function switchLibraryForCurrentUser() {
+      cloudLibraryReadyRef.current = false;
+
+      if (!user) {
+        setLibraryMode("local");
+        setIsLibraryLoading(false);
+        setCloudSyncState("idle");
+        setLocalMigrationDocuments([]);
+        setShowMigrationPrompt(false);
+        setSavedDocuments(loadSavedDocuments());
+        return;
+      }
+
+      const localDocuments = loadSavedDocuments();
+
+      setLibraryMode("cloud");
+      setIsLibraryLoading(true);
+      setCloudSyncState("loading");
+      setLibraryError("");
+      setSavedDocuments([]);
+
+      try {
+        const cloudDocuments = await loadCloudDocuments(user.id);
+
+        if (isCancelled) {
+          return;
+        }
+
+        const cloudDocumentsById = new Map(
+          cloudDocuments.map((document) => [document.id, document]),
+        );
+
+        const documentsAvailableForImport = localDocuments.filter(
+          (localDocument) => {
+            const cloudDocument = cloudDocumentsById.get(localDocument.id);
+
+            return (
+              !cloudDocument ||
+              new Date(localDocument.updatedAt).getTime() >
+                new Date(cloudDocument.updatedAt).getTime()
+            );
+          },
+        );
+
+        setSavedDocuments(cloudDocuments);
+        setLocalMigrationDocuments(documentsAvailableForImport);
+        setShowMigrationPrompt(documentsAvailableForImport.length > 0);
+        setCloudSyncState("synced");
+        cloudLibraryReadyRef.current = true;
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+
+        setCloudSyncState("error");
+        setLibraryError(
+          error instanceof Error
+            ? `Cloud library could not be loaded: ${error.message}`
+            : "Cloud library could not be loaded.",
+        );
+      } finally {
+        if (!isCancelled) {
+          setIsLibraryLoading(false);
+        }
+      }
+    }
+
+    void switchLibraryForCurrentUser();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
     savedDocumentsRef.current = savedDocuments;
 
-    try {
-      persistSavedDocuments(savedDocuments);
-      setLibraryError("");
-    } catch {
-      setLibraryError(
-        "The document could not be saved. Browser storage may be full.",
-      );
+    if (!user) {
+      try {
+        persistSavedDocuments(savedDocuments);
+        setLibraryError("");
+      } catch {
+        setLibraryError(
+          "The document could not be saved. Browser storage may be full.",
+        );
+      }
+
+      return;
     }
-  }, [savedDocuments]);
+
+    if (!cloudLibraryReadyRef.current) {
+      return;
+    }
+
+    if (cloudSyncTimerRef.current !== null) {
+      window.clearTimeout(cloudSyncTimerRef.current);
+    }
+
+    setCloudSyncState("syncing");
+
+    cloudSyncTimerRef.current = window.setTimeout(() => {
+      void upsertCloudDocuments(user.id, savedDocuments)
+        .then(() => {
+          setCloudSyncState("synced");
+          setLibraryError("");
+          setLastSavedAt(Date.now());
+        })
+        .catch((error: unknown) => {
+          setCloudSyncState("error");
+          setLibraryError(
+            error instanceof Error
+              ? `Cloud sync failed: ${error.message}`
+              : "Cloud sync failed.",
+          );
+        });
+    }, 650);
+
+    return () => {
+      if (cloudSyncTimerRef.current !== null) {
+        window.clearTimeout(cloudSyncTimerRef.current);
+      }
+    };
+  }, [savedDocuments, user?.id]);
 
   const loadReaderState = useCallback(
     (
@@ -334,6 +491,42 @@ function App() {
     navigate("/auth");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [navigate]);
+
+  const importLocalLibraryToCloud = async () => {
+    if (!user || localMigrationDocuments.length === 0) {
+      return;
+    }
+
+    setIsMigratingLibrary(true);
+    setCloudSyncState("syncing");
+    setLibraryError("");
+
+    try {
+      const mergedDocuments = mergeDocumentLibraries(
+        savedDocuments,
+        localMigrationDocuments,
+      );
+
+      await upsertCloudDocuments(user.id, mergedDocuments);
+      setSavedDocuments(mergedDocuments);
+      setShowMigrationPrompt(false);
+      setCloudSyncState("synced");
+      setLastSavedAt(Date.now());
+    } catch (error) {
+      setCloudSyncState("error");
+      setLibraryError(
+        error instanceof Error
+          ? `Local documents could not be imported: ${error.message}`
+          : "Local documents could not be imported.",
+      );
+    } finally {
+      setIsMigratingLibrary(false);
+    }
+  };
+
+  const dismissMigrationPrompt = () => {
+    setShowMigrationPrompt(false);
+  };
 
   const handlePdfUpload = async (
     event: ChangeEvent<HTMLInputElement>,
@@ -443,13 +636,27 @@ function App() {
     });
   };
 
-  const deleteSavedDocument = (savedDocument: SavedDocument) => {
+  const deleteSavedDocument = async (savedDocument: SavedDocument) => {
     const shouldDelete = window.confirm(
       `Delete "${savedDocument.title}" from your library?`,
     );
 
     if (!shouldDelete) {
       return;
+    }
+
+    if (user) {
+      try {
+        await deleteCloudDocument(user.id, savedDocument.id);
+      } catch (error) {
+        setCloudSyncState("error");
+        setLibraryError(
+          error instanceof Error
+            ? `The document could not be deleted: ${error.message}`
+            : "The document could not be deleted.",
+        );
+        return;
+      }
     }
 
     setSavedDocuments((currentDocuments) =>
@@ -551,22 +758,128 @@ function App() {
         : document,
     );
 
+    if (user) {
+      savedDocumentsRef.current = updatedDocuments;
+
+      void upsertCloudDocuments(user.id, updatedDocuments).catch(() => {
+        // pagehide and visibility events only allow a best-effort cloud save.
+      });
+
+      return;
+    }
+
     try {
       persistSavedDocuments(updatedDocuments);
       savedDocumentsRef.current = updatedDocuments;
     } catch {
       // A pagehide event has no reliable place to display an error.
     }
-  }, []);
+  }, [user]);
 
   const returnHome = useCallback(() => {
     saveActiveProgress();
     persistCurrentSnapshot();
     setIsPlaying(false);
+    setIsFocusMode(false);
+
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+    }
+
     setActiveDocumentId(null);
     setScreen("home");
     navigate("/");
   }, [navigate, persistCurrentSnapshot, saveActiveProgress]);
+
+  const returnToLibrary = useCallback(() => {
+    saveActiveProgress();
+    persistCurrentSnapshot();
+    setIsPlaying(false);
+    setIsFocusMode(false);
+
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+    }
+
+    setActiveDocumentId(null);
+    setScreen("home");
+    navigate("/library");
+  }, [navigate, persistCurrentSnapshot, saveActiveProgress]);
+
+  const exitFocusMode = useCallback(async () => {
+    setIsFocusMode(false);
+    setAreReaderControlsVisible(true);
+
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        // The browser may already be leaving fullscreen.
+      }
+    }
+  }, []);
+
+  const toggleFocusMode = useCallback(async () => {
+    if (isFocusMode) {
+      await exitFocusMode();
+      return;
+    }
+
+    setIsFocusMode(true);
+    setAreReaderControlsVisible(true);
+
+    if (!document.fullscreenElement && readerShellRef.current) {
+      try {
+        await readerShellRef.current.requestFullscreen();
+      } catch {
+        // Focus mode still works when fullscreen is unavailable or blocked.
+      }
+    }
+  }, [exitFocusMode, isFocusMode]);
+
+  const revealReaderControls = useCallback(() => {
+    if (controlsHideTimerRef.current !== null) {
+      window.clearTimeout(controlsHideTimerRef.current);
+      controlsHideTimerRef.current = null;
+    }
+
+    setAreReaderControlsVisible(true);
+
+    if (isFocusMode && isPlaying) {
+      controlsHideTimerRef.current = window.setTimeout(() => {
+        setAreReaderControlsVisible(false);
+        controlsHideTimerRef.current = null;
+      }, 2200);
+    }
+  }, [isFocusMode, isPlaying]);
+
+  const seekToWord = useCallback(
+    (requestedIndex: number) => {
+      if (words.length === 0) {
+        return;
+      }
+
+      const safeIndex = Math.min(
+        Math.max(Math.round(requestedIndex), 0),
+        words.length - 1,
+      );
+
+      setIsPlaying(false);
+      setCurrentWordIndex(safeIndex);
+      setAreReaderControlsVisible(true);
+    },
+    [words.length],
+  );
+
+  const restartCurrentReading = useCallback(() => {
+    if (words.length === 0) {
+      return;
+    }
+
+    setCurrentWordIndex(0);
+    setIsPlaying(true);
+    setAreReaderControlsVisible(true);
+  }, [words.length]);
 
   const togglePlayback = useCallback(() => {
     if (words.length === 0) {
@@ -763,12 +1076,47 @@ function App() {
   }, [currentWordIndex, isPlaying, screen]);
 
   useEffect(() => {
+    revealReaderControls();
+
+    return () => {
+      if (controlsHideTimerRef.current !== null) {
+        window.clearTimeout(controlsHideTimerRef.current);
+        controlsHideTimerRef.current = null;
+      }
+    };
+  }, [revealReaderControls]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFocusMode(false);
+        setAreReaderControlsVisible(true);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener(
+        "fullscreenchange",
+        handleFullscreenChange,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
     const readerMatch = location.pathname.match(/^\/reader\/([^/]+)$/);
 
     if (!readerMatch) {
       if (screen === "reader") {
         persistCurrentSnapshot();
         setIsPlaying(false);
+        setIsFocusMode(false);
+
+        if (document.fullscreenElement) {
+          void document.exitFullscreen().catch(() => undefined);
+        }
+
         setActiveDocumentId(null);
         setScreen("home");
       }
@@ -783,6 +1131,10 @@ function App() {
         loadReaderState("RSVP demonstration", DEMO_TEXT);
       }
 
+      return;
+    }
+
+    if (user && isLibraryLoading) {
       return;
     }
 
@@ -815,6 +1167,8 @@ function App() {
     persistCurrentSnapshot,
     savedDocuments,
     screen,
+    isLibraryLoading,
+    user,
   ]);
 
   useEffect(() => {
@@ -853,12 +1207,17 @@ function App() {
         "KeyD",
         "KeyW",
         "KeyS",
+        "KeyF",
+        "Home",
+        "End",
         "Escape",
       ];
 
       if (controlledKeys.includes(event.code)) {
         event.preventDefault();
       }
+
+      revealReaderControls();
 
       switch (event.code) {
         case "Space":
@@ -887,8 +1246,26 @@ function App() {
           decreaseSpeed();
           break;
 
+        case "KeyF":
+          if (!event.repeat) {
+            void toggleFocusMode();
+          }
+          break;
+
+        case "Home":
+          seekToWord(0);
+          break;
+
+        case "End":
+          seekToWord(words.length - 1);
+          break;
+
         case "Escape":
-          returnHome();
+          if (isFocusMode || document.fullscreenElement) {
+            void exitFocusMode();
+          } else {
+            returnHome();
+          }
           break;
       }
     }
@@ -901,11 +1278,17 @@ function App() {
   }, [
     decreaseSpeed,
     increaseSpeed,
+    exitFocusMode,
+    isFocusMode,
     nextWord,
     previousWord,
     returnHome,
+    revealReaderControls,
     screen,
+    seekToWord,
+    toggleFocusMode,
     togglePlayback,
+    words.length,
   ]);
 
   const isAuthPage = location.pathname.startsWith("/auth");
@@ -951,11 +1334,14 @@ function App() {
 
         <main className="library-page-main">
           <section className="library-page-intro">
-            <span className="eyebrow">Saved on this device</span>
-            <h1>Your local library</h1>
+            <span className="eyebrow">
+              {user ? "Synced to your account" : "Saved on this device"}
+            </span>
+            <h1>Your {user ? "cloud" : "local"} library</h1>
             <p>
-              Continue saved texts, search your collection and manage
-              reading progress without signing in.
+              {user
+                ? "Your documents and progress are available whenever you sign in on another device."
+                : "Continue saved texts, search your collection and manage reading progress without signing in."}
             </p>
           </section>
 
@@ -967,7 +1353,7 @@ function App() {
           >
             <div className="library-header">
               <div>
-                <span className="eyebrow">Reading collection</span>
+                <span className="eyebrow">{libraryStorageLabel}</span>
                 <h2 id="library-heading">Saved texts</h2>
               </div>
 
@@ -979,7 +1365,45 @@ function App() {
               </span>
             </div>
 
-            {savedDocuments.length > 0 && (
+            {user && showMigrationPrompt && (
+              <div className="migration-banner">
+                <div>
+                  <span className="migration-kicker">Local library found</span>
+                  <strong>Import your saved local texts to this account?</strong>
+                  <p>
+                    This copies {localMigrationDocuments.length}{" "}
+                    {localMigrationDocuments.length === 1
+                      ? "document"
+                      : "documents"} to your cloud library. Your local backup is kept on this device.
+                  </p>
+                </div>
+
+                <div className="migration-actions">
+                  <button
+                    className="migration-primary-button"
+                    type="button"
+                    onClick={() => void importLocalLibraryToCloud()}
+                    disabled={isMigratingLibrary}
+                  >
+                    {isMigratingLibrary ? "Importing…" : "Import local library"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={dismissMigrationPrompt}
+                    disabled={isMigratingLibrary}
+                  >
+                    Not now
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {isLibraryLoading ? (
+              <div className="library-loading-state">
+                <span className="library-loading-spinner" aria-hidden="true" />
+                <strong>Loading your cloud library…</strong>
+              </div>
+            ) : savedDocuments.length > 0 && (
               <div className="library-toolbar">
                 <label className="library-search-field">
                   <span>Search</span>
@@ -1019,9 +1443,10 @@ function App() {
               </p>
             )}
 
-            {savedDocuments.length === 0 ? (
+            {!isLibraryLoading && (
+              savedDocuments.length === 0 ? (
               <div className="empty-library">
-                <strong>Your local library is empty.</strong>
+                <strong>Your {user ? "cloud" : "local"} library is empty.</strong>
                 <span>
                   Return home to paste a text or upload a PDF.
                 </span>
@@ -1185,7 +1610,7 @@ function App() {
                   );
                 })}
               </div>
-            )}
+            ))}
           </section>
         </main>
       </div>
@@ -1252,7 +1677,7 @@ function App() {
               <div className="hero-features">
                 <span>250–2,000 WPM</span>
                 <span>Keyboard controls</span>
-                <span>Local reading library</span>
+                <span>{user ? "Cloud-synced library" : "Local reading library"}</span>
               </div>
 
               <button
@@ -1457,8 +1882,19 @@ function App() {
   }
 
   return (
-    <div className="reader-shell">
-      <header className="site-header">
+    <div
+      ref={readerShellRef}
+      className={[
+        "reader-shell",
+        isFocusMode ? "focus-mode" : "",
+        areReaderControlsVisible ? "controls-visible" : "controls-hidden",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      onPointerMove={revealReaderControls}
+      onPointerDown={revealReaderControls}
+    >
+      <header className="site-header reader-site-header focus-fade-control">
         <button
           className="brand brand-button"
           type="button"
@@ -1469,14 +1905,26 @@ function App() {
           RSVP Reader
         </button>
 
-        <button
-          className="reader-exit-button"
-          type="button"
-          onClick={returnHome}
-        >
-          Exit reader
-          <kbd>Esc</kbd>
-        </button>
+        <div className="reader-header-actions">
+          <button
+            className="reader-focus-button"
+            type="button"
+            onClick={() => void toggleFocusMode()}
+            aria-pressed={isFocusMode}
+          >
+            {isFocusMode ? "Exit focus" : "Focus mode"}
+            <kbd>F</kbd>
+          </button>
+
+          <button
+            className="reader-exit-button"
+            type="button"
+            onClick={returnHome}
+          >
+            Exit reader
+            <kbd>Esc</kbd>
+          </button>
+        </div>
       </header>
 
       <div
@@ -1511,15 +1959,11 @@ function App() {
 
       <main className="reader-content">
         <section className="reader-panel">
-          <div className="reader-status">
+          <div className="reader-status focus-fade-control">
             <span>{documentTitle}</span>
 
             <span>
-              {activeDocumentId
-                ? lastSavedAt
-                  ? "Saved locally"
-                  : "Saving..."
-                : "Demo not saved"}{" "}
+              {readerSaveLabel}{" "}
               · {currentWordIndex + 1} / {words.length}
             </span>
           </div>
@@ -1536,7 +1980,7 @@ function App() {
             </div>
           </div>
 
-          <div className="playback-controls">
+          <div className="playback-controls focus-fade-control">
             <button
               className="control-button secondary"
               type="button"
@@ -1573,7 +2017,7 @@ function App() {
             </button>
           </div>
 
-          <div className="settings-row">
+          <div className="settings-row focus-fade-control">
             <div className="setting-control">
               <span className="setting-label">Reading speed</span>
 
@@ -1660,7 +2104,7 @@ function App() {
             </div>
           </div>
 
-          <div className="progress-section">
+          <div className="progress-section focus-fade-control">
             <div className="progress-information">
               <span>
                 Approximately {estimatedMinutes} min remaining
@@ -1669,21 +2113,36 @@ function App() {
               <span>{Math.round(progress)}%</span>
             </div>
 
-            <div
-              className="progress-track"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(progress)}
-            >
-              <div
-                className="progress-fill"
-                style={{ width: `${progress}%` }}
+            <div className="reader-seek-control">
+              <div className="progress-track" aria-hidden="true">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+
+              <input
+                className="reader-seek-input"
+                type="range"
+                min={0}
+                max={Math.max(words.length - 1, 0)}
+                step={1}
+                value={currentWordIndex}
+                onChange={(event) =>
+                  seekToWord(Number(event.target.value))
+                }
+                aria-label="Reading position"
+                aria-valuetext={`Word ${currentWordIndex + 1} of ${words.length}`}
               />
+            </div>
+
+            <div className="seek-help">
+              <span>Drag the bar to jump through the text</span>
+              <span>Home: start · End: finish</span>
             </div>
           </div>
 
-          <div className="keyboard-shortcuts">
+          <div className="keyboard-shortcuts focus-fade-control">
             <span>
               <kbd>A</kbd> / <kbd>←</kbd> Previous
             </span>
@@ -1703,7 +2162,45 @@ function App() {
             <span>
               <kbd>S</kbd> / <kbd>↓</kbd> Slower
             </span>
+
+            <span>
+              <kbd>F</kbd> Focus mode
+            </span>
           </div>
+
+          {isReadingComplete && (
+            <section
+              className="completion-panel focus-fade-control"
+              aria-labelledby="completion-title"
+            >
+              <div>
+                <span className="completion-eyebrow">Reading complete</span>
+                <h2 id="completion-title">You reached the end.</h2>
+                <p>
+                  Restart this text or return to your library to choose
+                  another reading.
+                </p>
+              </div>
+
+              <div className="completion-actions">
+                <button
+                  className="completion-primary-button"
+                  type="button"
+                  onClick={restartCurrentReading}
+                >
+                  Read again
+                </button>
+
+                <button
+                  className="completion-secondary-button"
+                  type="button"
+                  onClick={returnToLibrary}
+                >
+                  Open library
+                </button>
+              </div>
+            </section>
+          )}
         </section>
       </main>
     </div>

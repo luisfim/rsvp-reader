@@ -4307,3 +4307,82 @@ kbd {
     display: grid;
   }
 }
+
+/* Fixpoint production branding */
+.brand-logo-asset {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  user-select: none;
+}
+
+.brand-logo-header {
+  width: 146px;
+  height: 33px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.hero-brand-symbol {
+  width: 76px;
+  height: 76px;
+  margin-bottom: 24px;
+}
+
+.auth-brand-symbol {
+  width: 66px;
+  height: 66px;
+  margin-bottom: 22px;
+}
+
+.page-loading-logo {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+}
+
+.page-loading-card > div {
+  min-width: 0;
+}
+
+.page-loading-card > div p {
+  color: #ffffff;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+}
+
+.page-loading-card > div span {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.75rem;
+}
+
+.page-loading-spinner {
+  margin-left: 0.35rem;
+}
+
+@media (max-width: 680px) {
+  .brand-logo-header {
+    width: 122px;
+    height: 28px;
+  }
+
+  .hero-brand-symbol {
+    width: 62px;
+    height: 62px;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-logo-header {
+    width: 98px;
+    height: 24px;
+  }
+
+  .auth-brand-symbol {
+    width: 56px;
+    height: 56px;
+  }
+}

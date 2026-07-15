@@ -1,4 +1,5 @@
 import type { RefObject } from "react";
+import { BrandLogo } from "../BrandLogo";
 
 import {
   MAX_FONT_SIZE,
@@ -113,8 +114,12 @@ export function ReaderPage({
           onClick={onReturnHome}
           aria-label="Return to home"
         >
-          <span className="brand-mark" />
-          RSVP Reader
+          <BrandLogo
+            variant="horizontal"
+            tone="light"
+            className="brand-logo-header"
+            decorative
+          />
         </button>
 
         <div className="reader-header-actions">

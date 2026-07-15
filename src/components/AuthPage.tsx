@@ -6,6 +6,7 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthContext";
+import { BrandLogo } from "./BrandLogo";
 import { SiteFooter } from "./layout/SiteFooter";
 import {
   createAccountDataExport,
@@ -276,10 +277,14 @@ export function AuthPage({
           className="brand brand-button"
           type="button"
           onClick={() => navigate("/")}
-          aria-label="RSVP Reader home"
+          aria-label="Fixpoint home"
         >
-          <span className="brand-mark" />
-          RSVP Reader
+          <BrandLogo
+            variant="horizontal"
+            tone="light"
+            className="brand-logo-header"
+            decorative
+          />
         </button>
 
         <div className="header-actions">
@@ -303,7 +308,13 @@ export function AuthPage({
 
       <main className="auth-page-main">
         <section className="auth-intro">
-          <span className="eyebrow">Reader account</span>
+          <BrandLogo
+            variant="symbol"
+            tone="light"
+            className="auth-brand-symbol"
+            decorative
+          />
+          <span className="eyebrow">Fixpoint account</span>
           <h1>{title}</h1>
           <p>
             Manage authentication, download a copy of your stored data, or

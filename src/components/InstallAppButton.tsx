@@ -38,7 +38,7 @@ export function InstallAppButton() {
           >
             <span className="eyebrow">Install on iPhone or iPad</span>
             <h2 id="install-instructions-title">
-              Add RSVP Reader to your Home Screen
+              Add Fixpoint to your Home Screen
             </h2>
             <ol>
               <li>Open this page in Safari.</li>

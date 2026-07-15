@@ -72,7 +72,7 @@ export function FeedbackPage({
   const [successMessage, setSuccessMessage] = useState("");
 
   const pagePath = window.location.hash.replace(/^#/, "") || "/feedback";
-  const supportMailto = getSupportMailto("RSVP Reader beta feedback");
+  const supportMailto = getSupportMailto("Fixpoint beta feedback");
   const diagnosticPreview = useMemo(
     () =>
       createFeedbackDiagnostics({

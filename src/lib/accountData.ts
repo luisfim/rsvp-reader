@@ -9,7 +9,7 @@ export interface AccountExportIdentity {
 }
 
 export interface AccountDataExport {
-  format: "rsvp-reader-account-export";
+  format: "fixpoint-account-export";
   version: 1;
   exportedAt: string;
   libraryMode: LibraryMode;
@@ -31,7 +31,7 @@ export function createAccountDataExport({
   exportedAt = new Date().toISOString(),
 }: CreateAccountDataExportOptions): AccountDataExport {
   return {
-    format: "rsvp-reader-account-export",
+    format: "fixpoint-account-export",
     version: 1,
     exportedAt,
     libraryMode,
@@ -64,7 +64,7 @@ export function createAccountExportFilename(
   const datePart = exportedAt.slice(0, 10);
   const accountPart = sanitizeFilenamePart(email ?? "reader");
 
-  return `rsvp-reader-${accountPart}-${datePart}.json`;
+  return `fixpoint-${accountPart}-${datePart}.json`;
 }
 
 export function downloadAccountDataExport(

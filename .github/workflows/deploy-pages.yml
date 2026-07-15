@@ -1,4 +1,4 @@
-name: Deploy RSVP Reader to GitHub Pages
+name: Deploy Fixpoint to GitHub Pages
 
 on:
   push:

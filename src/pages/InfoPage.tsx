@@ -32,7 +32,7 @@ interface InfoPageProps {
 const PAGE_TITLES: Record<InfoPageKind, string> = {
   privacy: "Privacy Policy",
   terms: "Terms of Service",
-  about: "About RSVP Reader",
+  about: "About Fixpoint",
   support: "Support",
 };
 
@@ -566,7 +566,7 @@ export function InfoPage({
         <article className="info-page-article">
           <header className="info-page-heading">
             <span className="eyebrow">
-              {isLegalPage ? "Legal information" : "RSVP Reader"}
+              {isLegalPage ? "Legal information" : "Fixpoint"}
             </span>
             <h1>{title}</h1>
             {isLegalPage && (

@@ -17,6 +17,7 @@ import type { Screen } from "./types/reader";
 
 import { useLocation } from "react-router";
 import { useAuth } from "./auth/AuthContext";
+import { BrandLogo } from "./components/BrandLogo";
 import { HelpDialog } from "./components/HelpDialog";
 import { HomePage } from "./pages/HomePage";
 import {
@@ -67,8 +68,17 @@ function PageLoadingFallback({ label }: { label: string }) {
   return (
     <main className="page-loading-shell" aria-busy="true">
       <div className="page-loading-card">
+        <BrandLogo
+          variant="symbol"
+          tone="light"
+          className="page-loading-logo"
+          decorative
+        />
+        <div>
+          <p>Fixpoint</p>
+          <span>{label}</span>
+        </div>
         <span className="page-loading-spinner" aria-hidden="true" />
-        <p>{label}</p>
       </div>
     </main>
   );
@@ -327,7 +337,7 @@ function App() {
   };
 
   const startDemo = () => {
-    openReader("RSVP demonstration", DEMO_TEXT);
+    openReader("Fixpoint demonstration", DEMO_TEXT);
   };
 
   const continueSavedDocument = (savedDocument: SavedDocument) => {

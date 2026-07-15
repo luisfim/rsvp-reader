@@ -70,6 +70,6 @@ describe("account data exports", () => {
         "Luis+Reader@example.com",
         "2026-07-15T12:00:00.000Z",
       ),
-    ).toBe("rsvp-reader-luis-reader-example.com-2026-07-15.json");
+    ).toBe("fixpoint-luis-reader-example.com-2026-07-15.json");
   });
 });

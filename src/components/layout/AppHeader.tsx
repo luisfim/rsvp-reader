@@ -1,3 +1,4 @@
+import { BrandLogo } from "../BrandLogo";
 import { InstallAppButton } from "../InstallAppButton";
 import type { CloudConnectionStatus } from "../../types/app";
 
@@ -34,10 +35,14 @@ export function AppHeader({
         className="brand brand-button"
         type="button"
         onClick={onNavigateHome}
-        aria-label="RSVP Reader home"
+        aria-label="Fixpoint home"
       >
-        <span className="brand-mark" />
-        RSVP Reader
+        <BrandLogo
+          variant="horizontal"
+          tone="light"
+          className="brand-logo-header"
+          decorative
+        />
       </button>
 
       <div className="header-actions">

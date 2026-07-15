@@ -5,6 +5,7 @@ import type {
 
 import type { SavedDocument } from "../lib/library";
 import type { CloudConnectionStatus } from "../types/app";
+import { BrandLogo } from "../components/BrandLogo";
 import { AppHeader } from "../components/layout/AppHeader";
 import { SiteFooter } from "../components/layout/SiteFooter";
 
@@ -96,18 +97,25 @@ export function HomePage({
       <main className="landing-main">
         <section className="hero-section">
           <div className="hero-copy">
-            <span className="eyebrow">Read without losing focus</span>
+            <BrandLogo
+              variant="symbol"
+              tone="light"
+              className="hero-brand-symbol"
+              decorative
+            />
+
+            <span className="eyebrow">Fixpoint speed reader</span>
 
             <h1>
-              Your text.
+              Read faster.
               <br />
-              One word at a time.
+              Stay centered.
             </h1>
 
             <p className="hero-description">
-              Transform books, articles and documents into a focused
-              speed-reading experience using Rapid Serial Visual
-              Presentation.
+              Fixpoint presents text one word at a time around a stable
+              visual anchor, helping you read books, articles and documents
+              with less eye movement.
             </p>
 
             <div className="hero-features">

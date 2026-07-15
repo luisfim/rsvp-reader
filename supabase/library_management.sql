@@ -1,4 +1,4 @@
--- RSVP Reader: archive and trash support
+-- Fixpoint: archive and trash support
 -- Run once in Supabase SQL Editor before using this update.
 
 alter table public.documents

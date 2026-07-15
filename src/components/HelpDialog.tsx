@@ -74,7 +74,7 @@ export function HelpDialog({
           <span className="help-dialog-eyebrow">Getting started</span>
           <h2 id="help-dialog-title">Read with less eye movement.</h2>
           <p id="help-dialog-description">
-            RSVP Reader keeps each word in one fixed position. The red
+            Fixpoint keeps each word in one fixed position. The red
             letter marks the visual anchor, while the rest of the interface
             stays calm and unobtrusive.
           </p>

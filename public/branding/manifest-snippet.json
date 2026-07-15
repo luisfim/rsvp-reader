@@ -2,34 +2,29 @@
   "name": "Fixpoint",
   "short_name": "Fixpoint",
   "description": "A minimalist RSVP speed reader for text and PDF documents.",
-  "start_url": "./",
-  "scope": "./",
-  "display": "standalone",
-  "background_color": "#0D1B2A",
   "theme_color": "#0D1B2A",
-  "orientation": "any",
-  "categories": ["education", "productivity", "books"],
+  "background_color": "#0D1B2A",
   "icons": [
     {
-      "src": "branding/pwa-icon-192.png",
+      "src": "/branding/pwa-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "branding/pwa-icon-512.png",
+      "src": "/branding/pwa-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "branding/pwa-maskable-192.png",
+      "src": "/branding/pwa-maskable-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "branding/pwa-maskable-512.png",
+      "src": "/branding/pwa-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

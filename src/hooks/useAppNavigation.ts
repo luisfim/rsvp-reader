@@ -181,7 +181,7 @@ export function useAppNavigation({
 
     if (routeDocumentId === "demo") {
       const result = loadReaderState(
-        "RSVP demonstration",
+        "Fixpoint demonstration",
         DEMO_TEXT,
       );
 

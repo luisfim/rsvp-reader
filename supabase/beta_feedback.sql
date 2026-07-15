@@ -1,4 +1,4 @@
--- RSVP Reader: public beta feedback collection
+-- Fixpoint: public beta feedback collection
 -- Run once in Supabase SQL Editor before publishing the feedback page.
 
 create table if not exists public.beta_feedback (

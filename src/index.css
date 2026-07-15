@@ -1,14 +1,19 @@
 @import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap");
 
 :root {
-  --color-bg: #061321;
-  --color-bg-elevated: #0a1d31;
+  --brand-navy: #0d1b2a;
+  --brand-white: #ffffff;
+  --brand-red: #b64545;
+  --brand-blue-gray: #64748b;
+
+  --color-bg: var(--brand-navy);
+  --color-bg-elevated: #12243a;
   --color-text: #e8f1fc;
   --color-accent: #4d8fe8;
   --color-accent-strong: #78adf5;
   --color-accent-rgb: 77, 143, 232;
-  --color-focus: #ff4d57;
-  --color-focus-rgb: 255, 77, 87;
+  --color-focus: var(--brand-red);
+  --color-focus-rgb: 182, 69, 69;
   --color-warning: #ddb879;
   --color-warning-rgb: 221, 184, 121;
 

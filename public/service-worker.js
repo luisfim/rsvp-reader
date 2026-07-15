@@ -1,12 +1,15 @@
-const CACHE_NAME = "rsvp-reader-shell-v2";
+const CACHE_NAME = "fixpoint-shell-v3";
 const BASE_PATH = new URL("./", self.location.href).pathname;
 const APP_SHELL = [
   BASE_PATH,
   `${BASE_PATH}offline.html`,
   `${BASE_PATH}manifest.webmanifest`,
-  `${BASE_PATH}icons/icon-192.png`,
-  `${BASE_PATH}icons/icon-512.png`,
-  `${BASE_PATH}icons/icon-maskable-512.png`,
+  `${BASE_PATH}branding/favicon.svg`,
+  `${BASE_PATH}branding/favicon-32.png`,
+  `${BASE_PATH}branding/apple-touch-icon-180.png`,
+  `${BASE_PATH}branding/pwa-icon-192.png`,
+  `${BASE_PATH}branding/pwa-icon-512.png`,
+  `${BASE_PATH}branding/pwa-maskable-512.png`,
 ];
 
 self.addEventListener("install", (event) => {

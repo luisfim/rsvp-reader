@@ -19,9 +19,9 @@ const configuredEffectiveDate = readEnvironmentValue(
 );
 
 export const siteConfig = {
-  name: "RSVP Reader",
+  name: "Fixpoint",
   operatorName:
-    configuredOperatorName || "the RSVP Reader operator",
+    configuredOperatorName || "the Fixpoint operator",
   supportEmail: isValidEmail(configuredSupportEmail)
     ? configuredSupportEmail
     : "",
@@ -31,7 +31,7 @@ export const siteConfig = {
   hasConfiguredSupportEmail: isValidEmail(configuredSupportEmail),
 };
 
-export function getSupportMailto(subject = "RSVP Reader support"): string {
+export function getSupportMailto(subject = "Fixpoint support"): string {
   if (!siteConfig.supportEmail) {
     return "";
   }

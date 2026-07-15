@@ -2,7 +2,7 @@ import { InstallAppButton } from "../InstallAppButton";
 import type { CloudConnectionStatus } from "../../types/app";
 
 interface AppHeaderProps {
-  activePage: "home" | "library";
+  activePage: "home" | "library" | "info";
   savedDocumentCount: number;
   userEmail?: string | null;
   accountLabel: string;

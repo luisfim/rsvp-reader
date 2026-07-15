@@ -8,6 +8,7 @@ import type {
   LibrarySort,
 } from "../types/app";
 import { AppHeader } from "../components/layout/AppHeader";
+import { SiteFooter } from "../components/layout/SiteFooter";
 import { DocumentCard } from "../components/library/DocumentCard";
 import { DocumentEditorDialog } from "../components/library/DocumentEditorDialog";
 
@@ -371,6 +372,8 @@ export function LibraryPage({
             ))}
         </section>
       </main>
+
+      <SiteFooter />
 
       <DocumentEditorDialog
         isOpen={Boolean(editingDocumentId)}

@@ -20,6 +20,10 @@ import { HelpDialog } from "./components/HelpDialog";
 import { ReaderPage } from "./components/reader/ReaderPage";
 import { HomePage } from "./pages/HomePage";
 import { LibraryPage } from "./pages/LibraryPage";
+import {
+  getInfoPageFromPath,
+  InfoPage,
+} from "./pages/InfoPage";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { useReaderFocusMode } from "./hooks/useReaderFocusMode";
 import { useReaderKeyboardControls } from "./hooks/useReaderKeyboardControls";
@@ -39,6 +43,7 @@ import "./App.css";
 function App() {
   const location = useLocation();
   const screen: Screen = getScreenFromPath(location.pathname);
+  const infoPage = getInfoPageFromPath(location.pathname);
   const { user, isLoading: isAuthLoading } = useAuth();
   const isOnline = useOnlineStatus();
   const { isHelpOpen, openHelp, closeHelp } = useOnboarding();
@@ -459,6 +464,32 @@ function App() {
       behavior: isPlaying ? "auto" : "smooth",
     });
   }, [currentWordIndex, isPlaying, screen]);
+
+  if (screen === "home" && infoPage) {
+    return (
+      <>
+        <InfoPage
+          page={infoPage}
+          userEmail={user?.email}
+          accountLabel={accountLabel}
+          cloudConnectionLabel={cloudConnectionLabel}
+          cloudConnectionStatus={cloudConnectionStatus}
+          isOnline={isOnline}
+          savedDocumentCount={activeDocumentCount}
+          onNavigateHome={navigateHome}
+          onOpenLibrary={openLibrary}
+          onOpenAccount={openAccount}
+          onOpenHelp={openHelpPanel}
+        />
+        <HelpDialog
+          isOpen={isHelpOpen}
+          isAuthenticated={Boolean(user)}
+          onClose={closeHelp}
+          onStartDemo={startDemoFromHelp}
+        />
+      </>
+    );
+  }
 
   if (screen === "home" && isAuthPage) {
     return (

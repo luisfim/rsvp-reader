@@ -6,6 +6,7 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthContext";
+import { SiteFooter } from "./layout/SiteFooter";
 import {
   createAccountDataExport,
   downloadAccountDataExport,
@@ -665,6 +666,8 @@ export function AuthPage({
           )}
         </section>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

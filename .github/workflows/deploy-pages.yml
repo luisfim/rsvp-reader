@@ -27,6 +27,9 @@ jobs:
       VITE_BASE_PATH: /rsvp-reader/
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_OPERATOR_NAME: ${{ vars.VITE_OPERATOR_NAME }}
+      VITE_SUPPORT_EMAIL: ${{ vars.VITE_SUPPORT_EMAIL }}
+      VITE_LEGAL_EFFECTIVE_DATE: ${{ vars.VITE_LEGAL_EFFECTIVE_DATE }}
 
     steps:
       - name: Check out repository

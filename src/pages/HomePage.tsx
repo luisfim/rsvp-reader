@@ -6,6 +6,7 @@ import type {
 import type { SavedDocument } from "../lib/library";
 import type { CloudConnectionStatus } from "../types/app";
 import { AppHeader } from "../components/layout/AppHeader";
+import { SiteFooter } from "../components/layout/SiteFooter";
 
 interface HomePageProps {
   userEmail?: string | null;
@@ -364,6 +365,8 @@ export function HomePage({
           </section>
         </section>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

@@ -41,3 +41,4 @@ npm run build
 - Saved word index, WPM, font size and natural-pause preference
 - Continue, restart and delete actions
 - Background line tracking near the top of the reader
+-

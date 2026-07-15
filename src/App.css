@@ -4022,3 +4022,288 @@ kbd {
     animation: none;
   }
 }
+
+/* Public-beta feedback collection. */
+.feedback-page-article {
+  max-width: 820px;
+}
+
+.feedback-introduction {
+  margin-top: 12px;
+  max-width: 650px;
+  color: rgba(222, 234, 255, 0.7);
+  line-height: 1.65;
+}
+
+.feedback-form {
+  display: grid;
+  gap: 21px;
+  margin-top: 34px;
+}
+
+.feedback-field-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.75fr);
+  gap: 16px;
+}
+
+.feedback-field,
+.feedback-rating-field {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+
+.feedback-field > span,
+.feedback-rating-field legend {
+  color: rgba(239, 246, 255, 0.9);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.feedback-field select,
+.feedback-field input,
+.feedback-field textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 12px;
+  background: rgba(4, 13, 28, 0.7);
+  color: rgba(248, 251, 255, 0.96);
+  font: inherit;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.feedback-field select,
+.feedback-field input {
+  min-height: 47px;
+  padding: 0 13px;
+}
+
+.feedback-field textarea {
+  min-height: 190px;
+  resize: vertical;
+  padding: 13px;
+  line-height: 1.58;
+}
+
+.feedback-field select:focus,
+.feedback-field input:focus,
+.feedback-field textarea:focus {
+  border-color: rgba(var(--color-accent-rgb), 0.72);
+  background: rgba(7, 20, 42, 0.84);
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.12);
+}
+
+.feedback-field small {
+  color: rgba(205, 219, 245, 0.52);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.feedback-rating-field {
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.feedback-rating-buttons {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(38px, 1fr));
+  gap: 7px;
+}
+
+.feedback-rating-buttons button {
+  min-height: 47px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 11px;
+  background: rgba(4, 13, 28, 0.7);
+  color: rgba(226, 236, 255, 0.68);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.feedback-rating-buttons button:hover,
+.feedback-rating-buttons button.active {
+  border-color: rgba(var(--color-accent-rgb), 0.58);
+  background: rgba(var(--color-accent-rgb), 0.16);
+  color: #ffffff;
+}
+
+.feedback-rating-buttons button:hover {
+  transform: translateY(-1px);
+}
+
+.feedback-diagnostics-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid rgba(var(--color-accent-rgb), 0.18);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(var(--color-accent-rgb), 0.045);
+  cursor: pointer;
+}
+
+.feedback-diagnostics-option input {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+}
+
+.feedback-diagnostics-option span {
+  display: grid;
+  gap: 5px;
+}
+
+.feedback-diagnostics-option strong {
+  color: rgba(241, 247, 255, 0.94);
+  font-size: 12px;
+}
+
+.feedback-diagnostics-option small {
+  color: rgba(207, 222, 247, 0.58);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.feedback-diagnostics-preview {
+  margin-top: -9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 13px;
+  padding: 13px 15px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.feedback-diagnostics-preview summary {
+  color: rgba(221, 233, 255, 0.72);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.feedback-diagnostics-preview dl {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
+.feedback-diagnostics-preview dl > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.feedback-diagnostics-preview dt,
+.feedback-diagnostics-preview dd {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.feedback-diagnostics-preview dt {
+  color: rgba(191, 210, 241, 0.5);
+  font-weight: 800;
+}
+
+.feedback-diagnostics-preview dd {
+  overflow-wrap: anywhere;
+  color: rgba(224, 235, 252, 0.73);
+}
+
+.feedback-form-message {
+  margin: -4px 0 0;
+  border-radius: 12px;
+  padding: 13px 15px;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.feedback-form-message.error {
+  border: 1px solid rgba(255, 115, 115, 0.26);
+  background: rgba(255, 86, 86, 0.07);
+  color: rgba(255, 194, 194, 0.9);
+}
+
+.feedback-form-message.success {
+  border: 1px solid rgba(111, 219, 166, 0.25);
+  background: rgba(77, 201, 139, 0.065);
+  color: rgba(188, 246, 218, 0.9);
+}
+
+.feedback-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.feedback-form-actions .info-primary-link,
+.feedback-form-actions .info-secondary-link {
+  margin-top: 0;
+}
+
+.feedback-submit-button {
+  cursor: pointer;
+}
+
+.feedback-submit-button:disabled {
+  opacity: 0.58;
+  cursor: wait;
+  transform: none;
+}
+
+.feedback-privacy-note {
+  margin-top: 42px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 28px;
+}
+
+.feedback-privacy-note h2 {
+  margin: 0;
+}
+
+.feedback-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .feedback-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feedback-rating-buttons {
+    max-width: 330px;
+  }
+}
+
+@media (max-width: 420px) {
+  .feedback-rating-buttons {
+    gap: 5px;
+  }
+
+  .feedback-diagnostics-preview dl > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .feedback-form-actions {
+    display: grid;
+  }
+}

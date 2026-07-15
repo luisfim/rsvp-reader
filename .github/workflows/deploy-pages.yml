@@ -30,6 +30,7 @@ jobs:
       VITE_OPERATOR_NAME: ${{ vars.VITE_OPERATOR_NAME }}
       VITE_SUPPORT_EMAIL: ${{ vars.VITE_SUPPORT_EMAIL }}
       VITE_LEGAL_EFFECTIVE_DATE: ${{ vars.VITE_LEGAL_EFFECTIVE_DATE }}
+      VITE_APP_VERSION: ${{ github.sha }}
 
     steps:
       - name: Check out repository

@@ -58,5 +58,11 @@ describe("InfoPage", () => {
     expect(
       screen.getByText(/PDF text extraction runs in your browser/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "Feedback" })[0],
+    ).toHaveAttribute("href", "/feedback");
+    expect(
+      screen.getByText(/When you submit beta feedback/i),
+    ).toBeInTheDocument();
   });
 });

@@ -13,6 +13,7 @@ export function SiteFooter() {
         <Link to="/terms">Terms</Link>
         <Link to="/about">About</Link>
         <Link to="/support">Support</Link>
+        <Link to="/feedback">Feedback</Link>
       </nav>
     </footer>
   );

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router";
 import { AppHeader } from "../components/layout/AppHeader";
+import { InfoNavigation } from "../components/layout/InfoNavigation";
 import { SiteFooter } from "../components/layout/SiteFooter";
 import {
   getSupportMailto,
@@ -118,6 +119,16 @@ function PrivacyContent() {
           you create a document, and its destination depends on whether you
           are using a local or cloud library.
         </p>
+
+        <h3>Beta feedback</h3>
+        <p>
+          When you submit beta feedback, the service stores your feedback
+          category, message, optional rating, optional contact email and the
+          submission time. When you choose to include diagnostics, the report
+          also contains browser and device information, the current route,
+          connectivity status and library mode. It does not include document
+          titles or document text.
+        </p>
       </section>
 
       <section>
@@ -127,6 +138,7 @@ function PrivacyContent() {
           <li>provide the reader, library and progress-saving features;</li>
           <li>authenticate accounts and synchronize cloud documents;</li>
           <li>restore offline changes when connectivity returns;</li>
+          <li>review beta feedback and diagnose reported problems;</li>
           <li>respond to support or data-rights requests;</li>
           <li>protect the service and comply with legal obligations.</li>
         </ul>
@@ -167,8 +179,10 @@ function PrivacyContent() {
           Local documents remain on the device until you delete them or clear
           the relevant browser storage. Cloud documents remain until you move
           them to trash and delete them permanently, or delete the account.
-          Provider backups and security logs may remain temporarily when
-          required for recovery, fraud prevention or legal compliance.
+          Beta feedback is retained while it remains useful for product
+          improvement, support and security review. Provider backups and
+          security logs may remain temporarily when required for recovery,
+          fraud prevention or legal compliance.
         </p>
       </section>
 
@@ -451,6 +465,18 @@ function SupportContent() {
       </section>
 
       <section>
+        <h2>Submit beta feedback</h2>
+        <p>
+          Use the feedback form for bugs, feature suggestions, PDF-import
+          problems, synchronization issues and reading-comfort observations.
+          Optional diagnostics never include document titles or text.
+        </p>
+        <Link className="info-primary-link" to="/feedback">
+          Open beta feedback
+        </Link>
+      </section>
+
+      <section>
         <h2>Contact support</h2>
         {supportMailto ? (
           <>
@@ -535,23 +561,7 @@ export function InfoPage({
       />
 
       <main className="info-page-main">
-        <aside className="info-page-navigation" aria-label="Information pages">
-          <span className="eyebrow">Information</span>
-          <nav>
-            <Link className={page === "privacy" ? "active" : ""} to="/privacy">
-              Privacy
-            </Link>
-            <Link className={page === "terms" ? "active" : ""} to="/terms">
-              Terms
-            </Link>
-            <Link className={page === "about" ? "active" : ""} to="/about">
-              About
-            </Link>
-            <Link className={page === "support" ? "active" : ""} to="/support">
-              Support
-            </Link>
-          </nav>
-        </aside>
+        <InfoNavigation activePage={page} />
 
         <article className="info-page-article">
           <header className="info-page-heading">

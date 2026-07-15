@@ -51,6 +51,12 @@ const LibraryPage = lazy(() =>
   })),
 );
 
+const FeedbackPage = lazy(() =>
+  import("./pages/FeedbackPage").then((module) => ({
+    default: module.FeedbackPage,
+  })),
+);
+
 const ReaderPage = lazy(() =>
   import("./components/reader/ReaderPage").then((module) => ({
     default: module.ReaderPage,
@@ -72,6 +78,8 @@ function App() {
   const location = useLocation();
   const screen: Screen = getScreenFromPath(location.pathname);
   const infoPage = getInfoPageFromPath(location.pathname);
+  const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
+  const isFeedbackPage = normalizedPath === "/feedback";
   const { user, isLoading: isAuthLoading } = useAuth();
   const isOnline = useOnlineStatus();
   const { isHelpOpen, openHelp, closeHelp } = useOnboarding();
@@ -492,6 +500,37 @@ function App() {
       behavior: isPlaying ? "auto" : "smooth",
     });
   }, [currentWordIndex, isPlaying, screen]);
+
+  if (screen === "home" && isFeedbackPage) {
+    return (
+      <>
+        <Suspense
+          fallback={<PageLoadingFallback label="Loading feedback…" />}
+        >
+          <FeedbackPage
+            userId={user?.id ?? null}
+            userEmail={user?.email}
+            accountLabel={accountLabel}
+            cloudConnectionLabel={cloudConnectionLabel}
+            cloudConnectionStatus={cloudConnectionStatus}
+            isOnline={isOnline}
+            libraryMode={libraryMode}
+            savedDocumentCount={activeDocumentCount}
+            onNavigateHome={navigateHome}
+            onOpenLibrary={openLibrary}
+            onOpenAccount={openAccount}
+            onOpenHelp={openHelpPanel}
+          />
+        </Suspense>
+        <HelpDialog
+          isOpen={isHelpOpen}
+          isAuthenticated={Boolean(user)}
+          onClose={closeHelp}
+          onStartDemo={startDemoFromHelp}
+        />
+      </>
+    );
+  }
 
   if (screen === "home" && infoPage) {
     return (

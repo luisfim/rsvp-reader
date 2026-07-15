@@ -128,7 +128,15 @@ describe("useDocumentImport", () => {
       async (_file, onProgress) => {
         onProgress?.(1, 2);
         onProgress?.(2, 2);
-        return "First page text. Second page text.";
+        return {
+          text: "First page text. Second page text.",
+          pageCount: 2,
+          wordCount: 6,
+          emptyPageCount: 0,
+          removedRepeatedLines: 4,
+          removedPageNumberLines: 2,
+          warnings: [],
+        };
       },
     );
 
@@ -147,6 +155,14 @@ describe("useDocumentImport", () => {
     expect(result.current.pdfProgress).toBe(100);
     expect(result.current.isExtractingPdf).toBe(false);
     expect(result.current.formError).toBe("");
+    expect(result.current.pdfImportDetails).toEqual({
+      pageCount: 2,
+      originalWordCount: 6,
+      emptyPageCount: 0,
+      removedRepeatedLines: 4,
+      removedPageNumberLines: 2,
+      warnings: [],
+    });
   });
 
   it("keeps a custom title when a PDF is imported", async () => {
@@ -155,7 +171,15 @@ describe("useDocumentImport", () => {
       type: "application/pdf",
     });
 
-    mockedExtractTextFromPdf.mockResolvedValue("Imported document text");
+    mockedExtractTextFromPdf.mockResolvedValue({
+      text: "Imported document text",
+      pageCount: 1,
+      wordCount: 3,
+      emptyPageCount: 0,
+      removedRepeatedLines: 0,
+      removedPageNumberLines: 0,
+      warnings: [],
+    });
 
     act(() => {
       result.current.updateDraftTitle("My custom title");

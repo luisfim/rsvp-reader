@@ -200,6 +200,7 @@ function App() {
     pdfFileName,
     isExtractingPdf,
     pdfProgress,
+    pdfImportDetails,
     pastedWordCount,
     pdfInputRef,
     updateDraftTitle,
@@ -546,6 +547,15 @@ function App() {
         pdfFileName={pdfFileName}
         isExtractingPdf={isExtractingPdf}
         pdfProgress={pdfProgress}
+        pdfPageCount={pdfImportDetails?.pageCount ?? null}
+        pdfRemovedRepeatedLines={
+          pdfImportDetails?.removedRepeatedLines ?? 0
+        }
+        pdfRemovedPageNumberLines={
+          pdfImportDetails?.removedPageNumberLines ?? 0
+        }
+        pdfEmptyPageCount={pdfImportDetails?.emptyPageCount ?? 0}
+        pdfWarnings={pdfImportDetails?.warnings ?? []}
         pdfInputRef={pdfInputRef}
         onNavigateHome={navigateHome}
         onOpenLibrary={openLibrary}

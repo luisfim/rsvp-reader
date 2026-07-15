@@ -15,8 +15,20 @@ import {
   createSavedDocument,
   type SavedDocument,
 } from "../lib/library";
-import { extractTextFromPdf } from "../lib/pdf";
+import {
+  extractTextFromPdf,
+  type PdfExtractionResult,
+} from "../lib/pdf";
 import { tokenizeText } from "../lib/reader";
+
+export interface PdfImportDetails {
+  pageCount: number;
+  originalWordCount: number;
+  removedRepeatedLines: number;
+  removedPageNumberLines: number;
+  emptyPageCount: number;
+  warnings: string[];
+}
 
 interface UseDocumentImportResult {
   draftTitle: string;
@@ -25,6 +37,7 @@ interface UseDocumentImportResult {
   pdfFileName: string;
   isExtractingPdf: boolean;
   pdfProgress: number;
+  pdfImportDetails: PdfImportDetails | null;
   pastedWordCount: number;
   pdfInputRef: React.RefObject<HTMLInputElement | null>;
   updateDraftTitle: (value: string) => void;
@@ -35,6 +48,19 @@ interface UseDocumentImportResult {
   handlePdfUpload: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
 }
 
+function toImportDetails(
+  result: PdfExtractionResult,
+): PdfImportDetails {
+  return {
+    pageCount: result.pageCount,
+    originalWordCount: result.wordCount,
+    removedRepeatedLines: result.removedRepeatedLines,
+    removedPageNumberLines: result.removedPageNumberLines,
+    emptyPageCount: result.emptyPageCount,
+    warnings: result.warnings,
+  };
+}
+
 export function useDocumentImport(): UseDocumentImportResult {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftText, setDraftText] = useState("");
@@ -42,6 +68,8 @@ export function useDocumentImport(): UseDocumentImportResult {
   const [pdfFileName, setPdfFileName] = useState("");
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(0);
+  const [pdfImportDetails, setPdfImportDetails] =
+    useState<PdfImportDetails | null>(null);
 
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -107,6 +135,7 @@ export function useDocumentImport(): UseDocumentImportResult {
         setFormError("Choose a valid PDF file.");
         setPdfFileName("");
         setPdfProgress(0);
+        setPdfImportDetails(null);
         return;
       }
 
@@ -114,16 +143,18 @@ export function useDocumentImport(): UseDocumentImportResult {
         setFormError("Choose a PDF smaller than 20 MB.");
         setPdfFileName("");
         setPdfProgress(0);
+        setPdfImportDetails(null);
         return;
       }
 
       setIsExtractingPdf(true);
       setPdfProgress(0);
       setPdfFileName(file.name);
+      setPdfImportDetails(null);
       setFormError("");
 
       try {
-        const extractedText = await extractTextFromPdf(
+        const result = await extractTextFromPdf(
           file,
           (currentPage, totalPages) => {
             setPdfProgress(
@@ -132,23 +163,25 @@ export function useDocumentImport(): UseDocumentImportResult {
           },
         );
 
-        if (tokenizeText(extractedText).length === 0) {
+        if (tokenizeText(result.text).length === 0) {
           throw new Error(
-            "No selectable text was found. This may be a scanned PDF.",
+            "No selectable text was found. This PDF may contain only scanned images.",
           );
         }
 
-        setDraftText(extractedText);
+        setDraftText(result.text);
         setDraftTitle((currentTitle) =>
           currentTitle.trim()
             ? currentTitle
             : file.name.replace(/\.pdf$/i, ""),
         );
+        setPdfImportDetails(toImportDetails(result));
         setPdfProgress(100);
         setFormError("");
       } catch (error) {
         setPdfFileName("");
         setPdfProgress(0);
+        setPdfImportDetails(null);
         setFormError(
           error instanceof Error
             ? error.message
@@ -168,6 +201,7 @@ export function useDocumentImport(): UseDocumentImportResult {
     pdfFileName,
     isExtractingPdf,
     pdfProgress,
+    pdfImportDetails,
     pastedWordCount,
     pdfInputRef,
     updateDraftTitle,

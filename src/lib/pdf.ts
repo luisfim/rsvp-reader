@@ -1,33 +1,194 @@
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
+import {
+  cleanPdfPageLines,
+  findRepeatedHeaderFooterKeys,
+  joinCleanedPdfPages,
+  normalizePdfWhitespace,
+  type PdfLine,
+  type PdfPageLines,
+} from "./pdfCleanup";
+import { tokenizeText } from "./reader";
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-type ProgressCallback = (
+export type PdfExtractionProgressCallback = (
   currentPage: number,
   totalPages: number,
 ) => void;
 
-function normalizePageText(text: string): string {
-  return text
-    .replace(/\u0000/g, "")
-    .replace(/(\p{L})-\s*\n\s*(\p{Ll})/gu, "$1$2")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+export interface PdfExtractionResult {
+  text: string;
+  pageCount: number;
+  wordCount: number;
+  emptyPageCount: number;
+  removedRepeatedLines: number;
+  removedPageNumberLines: number;
+  warnings: string[];
+}
+
+function getTextItemPosition(item: {
+  transform?: number[];
+  height?: number;
+}) {
+  const transform = item.transform ?? [];
+
+  return {
+    x: Number.isFinite(transform[4]) ? transform[4] : 0,
+    y: Number.isFinite(transform[5]) ? transform[5] : 0,
+    height:
+      typeof item.height === "number" && Number.isFinite(item.height)
+        ? Math.max(item.height, 1)
+        : 12,
+  };
+}
+
+function buildPageLines(items: unknown[]): PdfLine[] {
+  const lines: PdfLine[] = [];
+  let currentText = "";
+  let currentX = 0;
+  let currentY = 0;
+  let currentHeight = 12;
+  let hasCurrentLine = false;
+
+  const flushCurrentLine = () => {
+    const normalized = normalizePdfWhitespace(currentText);
+
+    if (normalized) {
+      lines.push({
+        text: normalized,
+        x: currentX,
+        y: currentY,
+        height: currentHeight,
+      });
+    }
+
+    currentText = "";
+    hasCurrentLine = false;
+  };
+
+  for (const rawItem of items) {
+    if (
+      typeof rawItem !== "object" ||
+      rawItem === null ||
+      !("str" in rawItem) ||
+      typeof rawItem.str !== "string"
+    ) {
+      continue;
+    }
+
+    const item = rawItem as {
+      str: string;
+      hasEOL?: boolean;
+      transform?: number[];
+      height?: number;
+    };
+
+    const itemText = normalizePdfWhitespace(item.str);
+    const position = getTextItemPosition(item);
+
+    if (!itemText) {
+      if (item.hasEOL) {
+        flushCurrentLine();
+      }
+
+      continue;
+    }
+
+    const startsNewGeometricLine =
+      hasCurrentLine &&
+      Math.abs(position.y - currentY) >
+        Math.max(position.height, currentHeight) * 0.55;
+
+    if (startsNewGeometricLine) {
+      flushCurrentLine();
+    }
+
+    if (!hasCurrentLine) {
+      currentX = position.x;
+      currentY = position.y;
+      currentHeight = position.height;
+      hasCurrentLine = true;
+    }
+
+    const needsSpace =
+      currentText.length > 0 &&
+      !/[-–—/]$/.test(currentText) &&
+      !/^[,.;:!?%\])}]/.test(itemText);
+
+    currentText += `${needsSpace ? " " : ""}${itemText}`;
+    currentHeight = Math.max(currentHeight, position.height);
+
+    if (item.hasEOL) {
+      flushCurrentLine();
+    }
+  }
+
+  flushCurrentLine();
+
+  return lines;
+}
+
+function getFriendlyPdfError(error: unknown): Error {
+  const errorName =
+    typeof error === "object" && error !== null && "name" in error
+      ? String(error.name)
+      : "";
+
+  const errorMessage =
+    error instanceof Error ? error.message : String(error ?? "");
+
+  if (
+    errorName === "PasswordException" ||
+    /password/i.test(errorMessage)
+  ) {
+    return new Error(
+      "This PDF is password-protected. Remove the password and try again.",
+    );
+  }
+
+  if (
+    errorName === "InvalidPDFException" ||
+    /invalid pdf|malformed|corrupt/i.test(errorMessage)
+  ) {
+    return new Error(
+      "This PDF appears to be damaged or malformed and could not be read.",
+    );
+  }
+
+  if (errorName === "MissingPDFException") {
+    return new Error("The selected PDF could not be found or opened.");
+  }
+
+  if (errorName === "UnexpectedResponseException") {
+    return new Error(
+      "The PDF could not be loaded because the file response was invalid.",
+    );
+  }
+
+  return new Error(
+    "The PDF could not be read. Try another file or paste the text manually.",
+  );
+}
+
+async function yieldToBrowser(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    globalThis.setTimeout(resolve, 0);
+  });
 }
 
 export async function extractTextFromPdf(
   file: File,
-  onProgress?: ProgressCallback,
-): Promise<string> {
+  onProgress?: PdfExtractionProgressCallback,
+): Promise<PdfExtractionResult> {
   const data = new Uint8Array(await file.arrayBuffer());
   const loadingTask = pdfjsLib.getDocument({ data });
 
   try {
     const pdf = await loadingTask.promise;
-    const extractedPages: string[] = [];
+    const extractedPages: PdfPageLines[] = [];
+    let emptyPageCount = 0;
 
     for (
       let pageNumber = 1;
@@ -35,38 +196,90 @@ export async function extractTextFromPdf(
       pageNumber += 1
     ) {
       const page = await pdf.getPage(pageNumber);
-      const textContent = await page.getTextContent();
-      const pageParts: string[] = [];
+      const textContent = await page.getTextContent({
+        disableNormalization: false,
+        includeMarkedContent: false,
+      });
 
-      for (const item of textContent.items) {
-        if (!("str" in item)) {
-          continue;
-        }
+      const lines = buildPageLines(textContent.items);
 
-        pageParts.push(item.str);
-        pageParts.push(item.hasEOL ? "\n" : " ");
+      if (lines.length === 0) {
+        emptyPageCount += 1;
       }
 
-      const pageText = normalizePageText(pageParts.join(""));
-
-      if (pageText) {
-        extractedPages.push(pageText);
-      }
-
+      extractedPages.push({ pageNumber, lines });
       onProgress?.(pageNumber, pdf.numPages);
+
+      if (pageNumber % 2 === 0) {
+        await yieldToBrowser();
+      }
     }
 
-    return extractedPages.join("\n\n").trim();
-  } catch (error) {
-    if (error instanceof Error && /password/i.test(error.message)) {
+    const repeatedHeaderFooterKeys =
+      findRepeatedHeaderFooterKeys(extractedPages);
+
+    let removedRepeatedLines = 0;
+    let removedPageNumberLines = 0;
+
+    const cleanedPages = extractedPages.map((page) => {
+      const cleanedPage = cleanPdfPageLines(
+        page,
+        repeatedHeaderFooterKeys,
+      );
+      removedRepeatedLines += cleanedPage.removedRepeatedLines;
+      removedPageNumberLines += cleanedPage.removedPageNumberLines;
+      return cleanedPage.page;
+    });
+
+    const text = joinCleanedPdfPages(cleanedPages);
+    const wordCount = tokenizeText(text).length;
+
+    if (wordCount === 0) {
       throw new Error(
-        "This PDF is password-protected and cannot be opened.",
+        "No selectable text was found. This PDF may contain only scanned images.",
       );
     }
 
-    throw new Error(
-      "The PDF could not be read. Make sure it contains selectable text.",
-    );
+    const warnings: string[] = [];
+
+    if (emptyPageCount > 0) {
+      warnings.push(
+        `${emptyPageCount} ${
+          emptyPageCount === 1 ? "page contains" : "pages contain"
+        } no selectable text.`,
+      );
+    }
+
+    if (wordCount < Math.max(20, pdf.numPages * 5)) {
+      warnings.push(
+        "Very little text was detected. Review the result because this may be a scanned or image-heavy PDF.",
+      );
+    }
+
+    if (pdf.numPages >= 150) {
+      warnings.push(
+        "This is a large document. Review chapter breaks and formatting before starting.",
+      );
+    }
+
+    return {
+      text,
+      pageCount: pdf.numPages,
+      wordCount,
+      emptyPageCount,
+      removedRepeatedLines,
+      removedPageNumberLines,
+      warnings,
+    };
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /No selectable text was found/.test(error.message)
+    ) {
+      throw error;
+    }
+
+    throw getFriendlyPdfError(error);
   } finally {
     try {
       await loadingTask.destroy();

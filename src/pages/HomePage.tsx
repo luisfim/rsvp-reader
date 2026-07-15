@@ -24,6 +24,11 @@ interface HomePageProps {
   pdfFileName: string;
   isExtractingPdf: boolean;
   pdfProgress: number;
+  pdfPageCount: number | null;
+  pdfRemovedRepeatedLines: number;
+  pdfRemovedPageNumberLines: number;
+  pdfEmptyPageCount: number;
+  pdfWarnings: string[];
   pdfInputRef: RefObject<HTMLInputElement | null>;
   onNavigateHome: () => void;
   onOpenLibrary: () => void;
@@ -54,6 +59,11 @@ export function HomePage({
   pdfFileName,
   isExtractingPdf,
   pdfProgress,
+  pdfPageCount,
+  pdfRemovedRepeatedLines,
+  pdfRemovedPageNumberLines,
+  pdfEmptyPageCount,
+  pdfWarnings,
   pdfInputRef,
   onNavigateHome,
   onOpenLibrary,
@@ -291,6 +301,66 @@ export function HomePage({
                     : "Choose file"}
               </span>
             </button>
+
+
+            {pdfFileName && !isExtractingPdf && pdfPageCount && (
+              <section
+                className="pdf-review-panel"
+                aria-label="PDF extraction summary"
+              >
+                <div className="pdf-review-heading">
+                  <div>
+                    <span className="pdf-review-eyebrow">
+                      PDF ready for review
+                    </span>
+                    <strong>
+                      {pdfPageCount.toLocaleString("en-US")} {pdfPageCount === 1 ? "page" : "pages"}
+                      {" · "}
+                      {pastedWordCount.toLocaleString("en-US")} words
+                    </strong>
+                  </div>
+
+                  <span className="pdf-review-status">Cleaned</span>
+                </div>
+
+                <p>
+                  Review and edit the extracted text above before starting.
+                  The original PDF file is not saved by this import step.
+                </p>
+
+                {(pdfRemovedRepeatedLines > 0 ||
+                  pdfRemovedPageNumberLines > 0 ||
+                  pdfEmptyPageCount > 0) && (
+                  <div className="pdf-cleanup-chips" aria-label="PDF cleanup results">
+                    {pdfRemovedRepeatedLines > 0 && (
+                      <span>
+                        {pdfRemovedRepeatedLines.toLocaleString("en-US")} repeated header/footer {pdfRemovedRepeatedLines === 1 ? "line" : "lines"} removed
+                      </span>
+                    )}
+
+                    {pdfRemovedPageNumberLines > 0 && (
+                      <span>
+                        {pdfRemovedPageNumberLines.toLocaleString("en-US")} page-number {pdfRemovedPageNumberLines === 1 ? "line" : "lines"} removed
+                      </span>
+                    )}
+
+                    {pdfEmptyPageCount > 0 && (
+                      <span className="warning">
+                        {pdfEmptyPageCount.toLocaleString("en-US")} empty-text {pdfEmptyPageCount === 1 ? "page" : "pages"}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {pdfWarnings.length > 0 && (
+                  <ul className="pdf-warning-list">
+                    {pdfWarnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
           </section>
         </section>
       </main>

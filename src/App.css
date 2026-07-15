@@ -3973,3 +3973,52 @@ kbd {
     grid-template-columns: 1fr;
   }
 }
+
+/* Route-level loading state used by lazy-loaded beta pages. */
+.page-loading-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at top, rgba(43, 111, 255, 0.16), transparent 42%),
+    #07101f;
+  color: #f7f9ff;
+}
+
+.page-loading-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid rgba(137, 177, 255, 0.28);
+  border-radius: 0.9rem;
+  background: rgba(12, 27, 51, 0.92);
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.28);
+}
+
+.page-loading-card p {
+  margin: 0;
+  font-weight: 700;
+}
+
+.page-loading-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: page-loading-spin 0.75s linear infinite;
+}
+
+@keyframes page-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-loading-spinner {
+    animation: none;
+  }
+}

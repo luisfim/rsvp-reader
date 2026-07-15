@@ -15,10 +15,7 @@ import {
   createSavedDocument,
   type SavedDocument,
 } from "../lib/library";
-import {
-  extractTextFromPdf,
-  type PdfExtractionResult,
-} from "../lib/pdf";
+import type { PdfExtractionResult } from "../lib/pdf";
 import { tokenizeText } from "../lib/reader";
 
 export interface PdfImportDetails {
@@ -154,6 +151,7 @@ export function useDocumentImport(): UseDocumentImportResult {
       setFormError("");
 
       try {
+        const { extractTextFromPdf } = await import("../lib/pdf");
         const result = await extractTextFromPdf(
           file,
           (currentPage, totalPages) => {

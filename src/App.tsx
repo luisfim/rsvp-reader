@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -15,11 +17,8 @@ import type { Screen } from "./types/reader";
 
 import { useLocation } from "react-router";
 import { useAuth } from "./auth/AuthContext";
-import { AuthPage } from "./components/AuthPage";
 import { HelpDialog } from "./components/HelpDialog";
-import { ReaderPage } from "./components/reader/ReaderPage";
 import { HomePage } from "./pages/HomePage";
-import { LibraryPage } from "./pages/LibraryPage";
 import {
   getInfoPageFromPath,
   InfoPage,
@@ -39,6 +38,35 @@ import { useOnboarding } from "./hooks/useOnboarding";
 import type { CloudConnectionStatus } from "./types/app";
 
 import "./App.css";
+
+const AuthPage = lazy(() =>
+  import("./components/AuthPage").then((module) => ({
+    default: module.AuthPage,
+  })),
+);
+
+const LibraryPage = lazy(() =>
+  import("./pages/LibraryPage").then((module) => ({
+    default: module.LibraryPage,
+  })),
+);
+
+const ReaderPage = lazy(() =>
+  import("./components/reader/ReaderPage").then((module) => ({
+    default: module.ReaderPage,
+  })),
+);
+
+function PageLoadingFallback({ label }: { label: string }) {
+  return (
+    <main className="page-loading-shell" aria-busy="true">
+      <div className="page-loading-card">
+        <span className="page-loading-spinner" aria-hidden="true" />
+        <p>{label}</p>
+      </div>
+    </main>
+  );
+}
 
 function App() {
   const location = useLocation();
@@ -493,16 +521,23 @@ function App() {
 
   if (screen === "home" && isAuthPage) {
     return (
-      <AuthPage
-        documents={savedDocuments}
-        libraryMode={libraryMode}
-      />
+      <Suspense
+        fallback={<PageLoadingFallback label="Loading account…" />}
+      >
+        <AuthPage
+          documents={savedDocuments}
+          libraryMode={libraryMode}
+        />
+      </Suspense>
     );
   }
 
   if (screen === "home" && isLibraryPage) {
     return (
       <>
+      <Suspense
+        fallback={<PageLoadingFallback label="Loading library…" />}
+      >
       <LibraryPage
         userEmail={user?.email}
         accountLabel={accountLabel}
@@ -553,6 +588,7 @@ function App() {
         onRestoreDocument={restoreTrashedDocument}
         onDeleteForever={permanentlyDeleteSavedDocument}
       />
+      </Suspense>
       <HelpDialog
         isOpen={isHelpOpen}
         isAuthenticated={Boolean(user)}
@@ -616,6 +652,9 @@ function App() {
 
   return (
     <>
+    <Suspense
+      fallback={<PageLoadingFallback label="Preparing reader…" />}
+    >
     <ReaderPage
       readerShellRef={readerShellRef}
       documentLayerRef={documentLayerRef}
@@ -646,6 +685,7 @@ function App() {
       onSeekToWord={seekToWord}
       onRestartReading={restartCurrentReading}
     />
+    </Suspense>
     <HelpDialog
       isOpen={isHelpOpen}
       isAuthenticated={Boolean(user)}

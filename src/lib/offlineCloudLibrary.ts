@@ -166,6 +166,38 @@ async function readIndexedState(
   }
 }
 
+
+async function deleteIndexedState(userId: string): Promise<void> {
+  const database = await openDatabase();
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(
+        STORE_NAME,
+        "readwrite",
+      );
+      const store = transaction.objectStore(STORE_NAME);
+
+      store.delete(userId);
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => {
+        reject(
+          transaction.error ??
+            new Error("The offline account cache could not be cleared."),
+        );
+      };
+      transaction.onabort = () => {
+        reject(
+          transaction.error ??
+            new Error("Clearing the offline account cache was cancelled."),
+        );
+      };
+    });
+  } finally {
+    database.close();
+  }
+}
 async function writeIndexedState(
   userId: string,
   state: OfflineCloudState,
@@ -286,4 +318,18 @@ export function queueOfflineCloudDeletion(
     deletions: [...deletionById.values()],
     updatedAt: deletedAt,
   };
+}
+
+export async function clearOfflineCloudState(
+  userId: string,
+): Promise<void> {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(getFallbackKey(userId));
+  }
+
+  try {
+    await deleteIndexedState(userId);
+  } catch {
+    // The localStorage fallback has already been cleared.
+  }
 }

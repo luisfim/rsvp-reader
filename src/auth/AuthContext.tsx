@@ -29,6 +29,7 @@ interface AuthContextValue {
   requestPasswordReset: (email: string) => Promise<AuthResult>;
   updatePassword: (password: string) => Promise<AuthResult>;
   signOut: () => Promise<AuthResult>;
+  deleteAccount: (confirmation: string) => Promise<AuthResult>;
   clearPasswordRecovery: () => void;
 }
 
@@ -154,6 +155,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.signOut();
 
         return { error: error?.message ?? null };
+      },
+
+      async deleteAccount(confirmation) {
+        if (!supabase) {
+          return { error: "Authentication is not configured yet." };
+        }
+
+        const { data, error } = await supabase.functions.invoke<
+          { success?: boolean; error?: string }
+        >("delete-account", {
+          body: { confirmation },
+        });
+
+        if (error) {
+          return {
+            error:
+              "The account deletion service could not be reached. " +
+              "Confirm that the delete-account Edge Function is deployed.",
+          };
+        }
+
+        if (!data?.success) {
+          return {
+            error: data?.error ?? "The account could not be deleted.",
+          };
+        }
+
+        await supabase.auth.signOut({ scope: "local" });
+        setSession(null);
+        setIsPasswordRecovery(false);
+
+        return { error: null };
       },
 
       clearPasswordRecovery() {

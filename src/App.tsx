@@ -461,7 +461,12 @@ function App() {
   }, [currentWordIndex, isPlaying, screen]);
 
   if (screen === "home" && isAuthPage) {
-    return <AuthPage />;
+    return (
+      <AuthPage
+        documents={savedDocuments}
+        libraryMode={libraryMode}
+      />
+    );
   }
 
   if (screen === "home" && isLibraryPage) {

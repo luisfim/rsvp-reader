@@ -6,14 +6,29 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthContext";
+import {
+  createAccountDataExport,
+  downloadAccountDataExport,
+} from "../lib/accountData";
+import type { SavedDocument } from "../lib/library";
+import { clearOfflineCloudState } from "../lib/offlineCloudLibrary";
+import type { LibraryMode } from "../types/app";
 
 type AuthMode = "sign-in" | "sign-up" | "forgot";
+
+interface AuthPageProps {
+  documents: SavedDocument[];
+  libraryMode: LibraryMode;
+}
 
 function getFriendlyEmail(userEmail: string | undefined): string {
   return userEmail?.trim() || "Signed-in reader";
 }
 
-export function AuthPage() {
+export function AuthPage({
+  documents,
+  libraryMode,
+}: AuthPageProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const {
@@ -26,6 +41,7 @@ export function AuthPage() {
     requestPasswordReset,
     updatePassword,
     signOut,
+    deleteAccount,
     clearPasswordRecovery,
   } = useAuth();
 
@@ -39,6 +55,9 @@ export function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const [showDeleteConfirmation, setShowDeleteConfirmation] =
+    useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   useEffect(() => {
     setErrorMessage("");
@@ -191,6 +210,59 @@ export function AuthPage() {
     navigate("/");
   }
 
+  function handleExportData() {
+    if (!user) {
+      return;
+    }
+
+    const dataExport = createAccountDataExport({
+      account: {
+        id: user.id,
+        email: user.email ?? null,
+        createdAt: user.created_at ?? null,
+        lastSignInAt: user.last_sign_in_at ?? null,
+      },
+      documents,
+      libraryMode,
+    });
+
+    downloadAccountDataExport(dataExport);
+    setErrorMessage("");
+    setStatusMessage(
+      `Downloaded ${documents.length} ${
+        documents.length === 1 ? "document" : "documents"
+      } as JSON.`,
+    );
+  }
+
+  async function handleDeleteAccount() {
+    if (!user) {
+      return;
+    }
+
+    if (deleteConfirmation !== "DELETE") {
+      setErrorMessage('Type "DELETE" exactly to confirm.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage("");
+    setStatusMessage("");
+
+    const userId = user.id;
+    const result = await deleteAccount(deleteConfirmation);
+
+    if (result.error) {
+      setIsSubmitting(false);
+      setErrorMessage(result.error);
+      return;
+    }
+
+    await clearOfflineCloudState(userId);
+    setIsSubmitting(false);
+    navigate("/");
+  }
+
   function leaveResetFlow() {
     clearPasswordRecovery();
     navigate("/auth");
@@ -233,9 +305,9 @@ export function AuthPage() {
           <span className="eyebrow">Reader account</span>
           <h1>{title}</h1>
           <p>
-            Your local library continues to work without an account. This
-            step adds account access; cloud document synchronization comes
-            in the next database update.
+            Manage authentication, download a copy of your stored data, or
+            permanently remove your account and cloud library. Local guest
+            documents remain available without signing in.
           </p>
         </section>
 
@@ -325,8 +397,9 @@ export function AuthPage() {
               </span>
               <h2>{getFriendlyEmail(user.email)}</h2>
               <p>
-                Your account is active. Documents are still stored locally on
-                this device until cloud synchronization is implemented.
+                Your account is active. Cloud documents and reading progress
+                synchronize through Supabase, while guest documents remain
+                stored only in this browser.
               </p>
 
               <div className="account-details">
@@ -337,9 +410,29 @@ export function AuthPage() {
 
                 <div>
                   <span>Email status</span>
-                  <strong>{user.email_confirmed_at ? "Confirmed" : "Pending"}</strong>
+                  <strong>
+                    {user.email_confirmed_at ? "Confirmed" : "Pending"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Current library</span>
+                  <strong>
+                    {libraryMode === "cloud" ? "Cloud" : "Local"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Documents in export</span>
+                  <strong>{documents.length}</strong>
                 </div>
               </div>
+
+              {statusMessage && (
+                <div className="auth-message success">
+                  {statusMessage}
+                </div>
+              )}
 
               {errorMessage && (
                 <div className="auth-message error" role="alert">
@@ -353,7 +446,16 @@ export function AuthPage() {
                   type="button"
                   onClick={() => navigate("/library")}
                 >
-                  Open local library
+                  Open library
+                </button>
+
+                <button
+                  className="auth-secondary-button"
+                  type="button"
+                  onClick={handleExportData}
+                  disabled={isSubmitting}
+                >
+                  Export my data
                 </button>
 
                 <button
@@ -362,9 +464,80 @@ export function AuthPage() {
                   onClick={handleSignOut}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Signing out…" : "Sign out"}
+                  {isSubmitting ? "Please wait…" : "Sign out"}
                 </button>
               </div>
+
+              <section className="account-danger-zone">
+                <div>
+                  <span className="auth-card-label">Danger zone</span>
+                  <h3>Delete account</h3>
+                  <p>
+                    Permanently delete your account and cloud documents.
+                    Guest documents stored only in this browser are not
+                    removed. Export your data first if you need a backup.
+                  </p>
+                </div>
+
+                {!showDeleteConfirmation ? (
+                  <button
+                    className="account-delete-button"
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteConfirmation(true);
+                      setDeleteConfirmation("");
+                      setErrorMessage("");
+                      setStatusMessage("");
+                    }}
+                  >
+                    Delete account
+                  </button>
+                ) : (
+                  <div className="account-delete-confirmation">
+                    <label>
+                      <span>Type DELETE to confirm</span>
+                      <input
+                        type="text"
+                        value={deleteConfirmation}
+                        onChange={(event) =>
+                          setDeleteConfirmation(event.target.value)
+                        }
+                        autoComplete="off"
+                        spellCheck={false}
+                        placeholder="DELETE"
+                      />
+                    </label>
+
+                    <div>
+                      <button
+                        className="account-delete-button"
+                        type="button"
+                        onClick={() => void handleDeleteAccount()}
+                        disabled={
+                          isSubmitting || deleteConfirmation !== "DELETE"
+                        }
+                      >
+                        {isSubmitting
+                          ? "Deleting…"
+                          : "Permanently delete account"}
+                      </button>
+
+                      <button
+                        className="auth-text-button"
+                        type="button"
+                        onClick={() => {
+                          setShowDeleteConfirmation(false);
+                          setDeleteConfirmation("");
+                          setErrorMessage("");
+                        }}
+                        disabled={isSubmitting}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
             </div>
           ) : (
             <form className="auth-form" onSubmit={handleAuthSubmit}>

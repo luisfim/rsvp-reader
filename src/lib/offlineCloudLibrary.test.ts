@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  clearOfflineCloudState,
+  loadOfflineCloudState,
   queueOfflineCloudDeletion,
+  saveOfflineCloudState,
   withOfflineDocuments,
   type OfflineCloudState,
 } from "./offlineCloudLibrary";
@@ -64,4 +67,18 @@ describe("offline cloud library helpers", () => {
       "2026-07-14T13:00:00.000Z",
     );
   });
+  it("clears the cached cloud library for a deleted account", async () => {
+    const userId = "deleted-user";
+    const state = makeState([
+      makeDocument("cached", "2026-07-14T12:00:00.000Z"),
+    ]);
+
+    await saveOfflineCloudState(userId, state);
+    expect((await loadOfflineCloudState(userId)).documents).toHaveLength(1);
+
+    await clearOfflineCloudState(userId);
+
+    expect((await loadOfflineCloudState(userId)).documents).toEqual([]);
+  });
+
 });

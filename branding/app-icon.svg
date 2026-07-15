@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+    width="1024" height="1024" viewBox="0 0 1024 1024"
+    role="img" aria-labelledby="fixpoint-title">
+  <title id="fixpoint-title">Fixpoint application icon</title>
+  <rect width="1024" height="1024" fill="#0D1B2A"/>
+<g transform="translate(207.000 207.000)
+              scale(3.0500000)">
+  <path d="M74 44 C46 63 46 137 74 156"
+        fill="none" stroke="#FFFFFF"
+        stroke-width="7.950"
+        stroke-linecap="round"/>
+  <path d="M126 44 C154 63 154 137 126 156"
+        fill="none" stroke="#FFFFFF"
+        stroke-width="7.950"
+        stroke-linecap="round"/>
+  <line x1="100" y1="22" x2="100" y2="178"
+        stroke="#FFFFFF"
+        stroke-width="5.512"
+        stroke-linecap="round"/>
+  <circle cx="100" cy="100" r="12.5" fill="#B64545"/>
+</g>
+
+</svg>

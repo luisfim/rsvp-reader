@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+    width="200" height="200" viewBox="0 0 200 200"
+    role="img" aria-labelledby="fixpoint-title">
+  <title id="fixpoint-title">Fixpoint symbol for light backgrounds</title>
+  
+<g transform="translate(5.000 5.000)
+              scale(0.9500000)">
+  <path d="M74 44 C46 63 46 137 74 156"
+        fill="none" stroke="#0D1B2A"
+        stroke-width="7.500"
+        stroke-linecap="round"/>
+  <path d="M126 44 C154 63 154 137 126 156"
+        fill="none" stroke="#0D1B2A"
+        stroke-width="7.500"
+        stroke-linecap="round"/>
+  <line x1="100" y1="22" x2="100" y2="178"
+        stroke="#0D1B2A"
+        stroke-width="5.200"
+        stroke-linecap="round"/>
+  <circle cx="100" cy="100" r="12.5" fill="#B64545"/>
+</g>
+
+</svg>

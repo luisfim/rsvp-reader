@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      VITE_BASE_PATH: /rsvp-reader/
+      VITE_BASE_PATH: /fixpoint/
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
       VITE_OPERATOR_NAME: ${{ vars.VITE_OPERATOR_NAME }}

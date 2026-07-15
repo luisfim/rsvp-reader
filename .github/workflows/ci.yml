@@ -1,4 +1,4 @@
-name: RSVP Reader quality checks
+name: Fixpoint quality checks
 
 on:
   push:

@@ -1,23 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg"
     width="200" height="200" viewBox="0 0 200 200"
     role="img" aria-labelledby="fixpoint-title">
-  <title id="fixpoint-title">Fixpoint monochrome white symbol</title>
+  <title id="fixpoint-title">Fixpoint monochrome white target-O symbol</title>
   
-<g transform="translate(5.000 5.000)
-              scale(0.9500000)">
-  <path d="M74 44 C46 63 46 137 74 156"
-        fill="none" stroke="#FFFFFF"
-        stroke-width="7.500"
-        stroke-linecap="round"/>
-  <path d="M126 44 C154 63 154 137 126 156"
-        fill="none" stroke="#FFFFFF"
-        stroke-width="7.500"
-        stroke-linecap="round"/>
-  <line x1="100" y1="22" x2="100" y2="178"
-        stroke="#FFFFFF"
-        stroke-width="5.200"
-        stroke-linecap="round"/>
-  <circle cx="100" cy="100" r="12.5" fill="#FFFFFF"/>
+<g>
+  <circle cx="100.000" cy="100.000" r="45.325"
+          fill="none" stroke="#FFFFFF" stroke-width="14.800"/>
+  <circle cx="100.000" cy="100.000" r="17.575"
+          fill="#FFFFFF"/>
+  <line x1="100.000" y1="16.750"
+        x2="100.000" y2="40.800"
+        stroke="#FFFFFF" stroke-width="4.070"
+        stroke-linecap="round" opacity="0.72"/>
+  <line x1="100.000" y1="159.200"
+        x2="100.000" y2="183.250"
+        stroke="#FFFFFF" stroke-width="4.070"
+        stroke-linecap="round" opacity="0.72"/>
+  <line x1="16.750" y1="100.000"
+        x2="40.800" y2="100.000"
+        stroke="#FFFFFF" stroke-width="4.070"
+        stroke-linecap="round" opacity="0.72"/>
+  <line x1="159.200" y1="100.000"
+        x2="183.250" y2="100.000"
+        stroke="#FFFFFF" stroke-width="4.070"
+        stroke-linecap="round" opacity="0.72"/>
 </g>
 
 </svg>

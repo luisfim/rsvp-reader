@@ -2,8 +2,8 @@
   "name": "Fixpoint",
   "short_name": "Fixpoint",
   "description": "A minimalist RSVP speed reader for text and PDF documents.",
-  "theme_color": "#0D1B2A",
-  "background_color": "#0D1B2A",
+  "theme_color": "#0E1A2B",
+  "background_color": "#0E1A2B",
   "icons": [
     {
       "src": "/branding/pwa-icon-192.png",

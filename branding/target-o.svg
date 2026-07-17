@@ -1,28 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg"
     width="200" height="200" viewBox="0 0 200 200"
     role="img" aria-labelledby="fixpoint-title">
-  <title id="fixpoint-title">Fixpoint target-O symbol for dark backgrounds</title>
+  <title id="fixpoint-title">Fixpoint target-O source mark</title>
   
 <g>
   <circle cx="100.000" cy="100.000" r="45.325"
-          fill="none" stroke="#FFFFFF" stroke-width="14.800"/>
+          fill="none" stroke="#0E1A2B" stroke-width="14.800"/>
   <circle cx="100.000" cy="100.000" r="17.575"
           fill="#C43D3D"/>
   <line x1="100.000" y1="16.750"
         x2="100.000" y2="40.800"
-        stroke="#FFFFFF" stroke-width="4.070"
+        stroke="#0E1A2B" stroke-width="4.070"
         stroke-linecap="round" opacity="0.72"/>
   <line x1="100.000" y1="159.200"
         x2="100.000" y2="183.250"
-        stroke="#FFFFFF" stroke-width="4.070"
+        stroke="#0E1A2B" stroke-width="4.070"
         stroke-linecap="round" opacity="0.72"/>
   <line x1="16.750" y1="100.000"
         x2="40.800" y2="100.000"
-        stroke="#FFFFFF" stroke-width="4.070"
+        stroke="#0E1A2B" stroke-width="4.070"
         stroke-linecap="round" opacity="0.72"/>
   <line x1="159.200" y1="100.000"
         x2="183.250" y2="100.000"
-        stroke="#FFFFFF" stroke-width="4.070"
+        stroke="#0E1A2B" stroke-width="4.070"
         stroke-linecap="round" opacity="0.72"/>
 </g>
 

@@ -1,32 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg"
-    width="520" height="500" viewBox="0 0 520 500"
+    width="520" height="390" viewBox="0 0 520 390"
     role="img" aria-labelledby="fixpoint-title">
-  <title id="fixpoint-title">Fixpoint stacked logo for dark backgrounds</title>
-  
-<g transform="translate(142.500 47.500)
-              scale(1.1750000)">
-  <path d="M74 44 C46 63 46 137 74 156"
-        fill="none" stroke="#FFFFFF"
-        stroke-width="7.500"
-        stroke-linecap="round"/>
-  <path d="M126 44 C154 63 154 137 126 156"
-        fill="none" stroke="#FFFFFF"
-        stroke-width="7.500"
-        stroke-linecap="round"/>
-  <line x1="100" y1="22" x2="100" y2="178"
-        stroke="#FFFFFF"
-        stroke-width="5.200"
-        stroke-linecap="round"/>
-  <circle cx="100" cy="100" r="12.5" fill="#B64545"/>
-</g>
-<path d="M136 0H358V657H1049V849H358V1295H1106V1490H136Z" transform="translate(88.339 420.000) scale(0.0419922 -0.0419922)" fill="#FFFFFF"/>
-<path d="M119 0H330V1056H119Z" transform="translate(142.298 420.000) scale(0.0419922 -0.0419922)" fill="#FFFFFF"/>
-<path d="M24 0H263L413 214C453 275 492 333 531 392C569 333 607 275 647 214L794 0H1035L651 541L1017 1056H780L652 868C610 806 571 746 532 685C494 746 456 806 415 868L289 1056H48L413 538Z" transform="translate(166.653 420.000) scale(0.0419922 -0.0419922)" fill="#FFFFFF"/>
-<path d="M119 -418H330V159H333C404 38 517 -21 655 -21C930 -21 1113 201 1113 528C1113 854 929 1077 656 1077C519 1077 396 1020 329 904H326V1056H119ZM612 161C432 161 316 306 316 528C316 750 432 896 612 896C782 896 899 767 899 528C899 290 782 161 612 161Z" transform="translate(216.623 420.000) scale(0.0419922 -0.0419922)" fill="#FFFFFF"/>
-<path d="M573 -24C875 -24 1078 201 1078 526C1078 853 875 1080 573 1080C271 1080 67 853 67 526C67 201 271 -24 573 -24ZM573 158C392 158 281 301 281 526C281 753 393 898 573 898C753 898 865 753 865 526C865 302 754 158 573 158Z" transform="translate(271.673 420.000) scale(0.0419922 -0.0419922)" fill="#FFFFFF"/>
-<path d="M119 0H330V1056H119Z" transform="translate(325.296 420.000) scale(0.0419922 -0.0419922)" fill="#FFFFFF"/>
-<path d="M330 608C330 804 441 888 585 888C731 888 816 801 816 632V0H1027V658C1027 934 862 1077 645 1077C506 1077 398 1017 326 897V1056H119V0H330Z" transform="translate(349.651 420.000) scale(0.0419922 -0.0419922)" fill="#FFFFFF"/>
-<path d="M628 1056H414V1344H202V1056H16V882H202V252C202 82 297 0 495 0H628V174H525C441 174 414 201 414 279V882H628Z" transform="translate(403.274 420.000) scale(0.0419922 -0.0419922)" fill="#FFFFFF"/>
-<circle cx="151.726" cy="352.060" r="4.472" fill="#B64545"/>
-<circle cx="334.724" cy="352.060" r="4.472" fill="#B64545"/>
+  <title id="fixpoint-title">Fixpoint stacked wordmark for dark backgrounds</title>
+  <path d="M136 0H358V657H1049V849H358V1295H1106V1490H136Z" transform="translate(173.968 150.000) scale(0.0512695 -0.0512695)" fill="#FFFFFF"/>
+<path d="M358 1490H136V0H358Z" transform="translate(242.133 150.000) scale(0.0512695 -0.0512695)" fill="#FFFFFF"/>
+<path d="M21 0H272L522 361C576 438 628 515 679 593C730 515 781 438 834 361L1080 0H1337L809 770L1304 1490H1055L850 1191C792 1106 736 1021 681 936C626 1021 571 1106 514 1191L313 1490H58L555 762Z" transform="translate(276.460 150.000) scale(0.0512695 -0.0512695)" fill="#FFFFFF"/><path d="M136 0H358V561H681C1000 561 1207 740 1207 1026C1207 1311 1007 1490 688 1490H136ZM358 753V1297H677C869 1297 988 1194 988 1026C988 858 869 753 677 753Z" transform="translate(87.576 330.000) scale(0.0512695 -0.0512695)" fill="#FFFFFF"/>
+<path d="M766 -24C1163 -24 1452 288 1452 744C1452 1202 1163 1514 766 1514C369 1514 81 1202 81 744C81 289 369 -24 766 -24ZM766 179C509 179 304 381 304 744C304 1109 509 1311 766 1311C1023 1311 1229 1109 1229 744C1229 381 1023 179 766 179Z" transform="translate(161.483 330.000) scale(0.0512695 -0.0512695)" fill="#FFFFFF"/>
+<path d="M358 1490H136V0H358Z" transform="translate(249.080 330.000) scale(0.0512695 -0.0512695)" fill="#FFFFFF"/>
+<path d="M136 0H358V806C358 872 357 1001 350 1176C449 1006 530 871 572 805L1081 0H1329V1490H1106V603C1106 549 1108 422 1112 314C1052 420 986 533 951 589L382 1490H136Z" transform="translate(283.407 330.000) scale(0.0512695 -0.0512695)" fill="#FFFFFF"/>
+<path d="M48 1295H523V0H746V1295H1219V1490H48Z" transform="translate(367.465 330.000) scale(0.0512695 -0.0512695)" fill="#FFFFFF"/>
+<circle cx="200.781" cy="291.675" r="6.090" fill="#C43D3D"/>
+<line x1="200.781" y1="246.000" x2="200.781" y2="253.350" stroke="#C43D3D" stroke-width="1.260" stroke-linecap="round" opacity="0.52"/>
+<line x1="200.781" y1="330.000" x2="200.781" y2="337.350" stroke="#C43D3D" stroke-width="1.260" stroke-linecap="round" opacity="0.52"/>
+<line x1="155.106" y1="291.675" x2="162.456" y2="291.675" stroke="#C43D3D" stroke-width="1.260" stroke-linecap="round" opacity="0.52"/>
+<line x1="239.106" y1="291.675" x2="246.456" y2="291.675" stroke="#C43D3D" stroke-width="1.260" stroke-linecap="round" opacity="0.52"/>
 </svg>

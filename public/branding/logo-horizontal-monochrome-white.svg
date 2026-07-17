@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg"
     width="980" height="220" viewBox="0 0 980 220"
     role="img" aria-labelledby="fixpoint-title">
-  <title id="fixpoint-title">Fixpoint wordmark for dark backgrounds</title>
+  <title id="fixpoint-title">Fixpoint monochrome white wordmark</title>
   <path d="M136 0H358V657H1049V849H358V1295H1106V1490H136Z" transform="translate(55.000 165.000) scale(0.0625000 -0.0625000)" fill="#FFFFFF"/>
 <path d="M358 1490H136V0H358Z" transform="translate(139.125 165.000) scale(0.0625000 -0.0625000)" fill="#FFFFFF"/>
 <path d="M21 0H272L522 361C576 438 628 515 679 593C730 515 781 438 834 361L1080 0H1337L809 770L1304 1490H1055L850 1191C792 1106 736 1021 681 936C626 1021 571 1106 514 1191L313 1490H58L555 762Z" transform="translate(182.000 165.000) scale(0.0625000 -0.0625000)" fill="#FFFFFF"/>
@@ -10,9 +10,9 @@
 <path d="M358 1490H136V0H358Z" transform="translate(477.750 165.000) scale(0.0625000 -0.0625000)" fill="#FFFFFF"/>
 <path d="M136 0H358V806C358 872 357 1001 350 1176C449 1006 530 871 572 805L1081 0H1329V1490H1106V603C1106 549 1108 422 1112 314C1052 420 986 533 951 589L382 1490H136Z" transform="translate(520.625 165.000) scale(0.0625000 -0.0625000)" fill="#FFFFFF"/>
 <path d="M48 1295H523V0H746V1295H1219V1490H48Z" transform="translate(624.125 165.000) scale(0.0625000 -0.0625000)" fill="#FFFFFF"/>
-<circle cx="417.844" cy="118.280" r="7.424" fill="#C43D3D"/>
-<line x1="417.844" y1="61.960" x2="417.844" y2="71.560" stroke="#C43D3D" stroke-width="1.536" stroke-linecap="round" opacity="0.52"/>
-<line x1="417.844" y1="165.000" x2="417.844" y2="174.600" stroke="#C43D3D" stroke-width="1.536" stroke-linecap="round" opacity="0.52"/>
-<line x1="361.524" y1="118.280" x2="371.124" y2="118.280" stroke="#C43D3D" stroke-width="1.536" stroke-linecap="round" opacity="0.52"/>
-<line x1="464.564" y1="118.280" x2="474.164" y2="118.280" stroke="#C43D3D" stroke-width="1.536" stroke-linecap="round" opacity="0.52"/>
+<circle cx="417.844" cy="118.280" r="7.424" fill="#FFFFFF"/>
+<line x1="417.844" y1="61.960" x2="417.844" y2="71.560" stroke="#FFFFFF" stroke-width="1.536" stroke-linecap="round" opacity="0.75"/>
+<line x1="417.844" y1="165.000" x2="417.844" y2="174.600" stroke="#FFFFFF" stroke-width="1.536" stroke-linecap="round" opacity="0.75"/>
+<line x1="361.524" y1="118.280" x2="371.124" y2="118.280" stroke="#FFFFFF" stroke-width="1.536" stroke-linecap="round" opacity="0.75"/>
+<line x1="464.564" y1="118.280" x2="474.164" y2="118.280" stroke="#FFFFFF" stroke-width="1.536" stroke-linecap="round" opacity="0.75"/>
 </svg>

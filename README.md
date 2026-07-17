@@ -40,5 +40,5 @@ npm run build
 - Save on page hide, tab switch and refresh
 - Saved word index, WPM, font size and natural-pause preference
 - Continue, restart and delete actions
-- Background line tracking near the top of the reader
+- Background line tracking near the top of the reader 
 -
